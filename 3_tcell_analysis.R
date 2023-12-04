@@ -89,9 +89,9 @@ outName <- "tcell"
 
 Idents(seu.obj) <- "clusterID_sub"
 seu.obj <- RenameIdents(seu.obj, c("0" = "Trm (c0)", "1" = "Trm (c0)", 
-                                   "2" = "Tnaive (c1)", "3" = "Trm (c0)",
-                                   "4" = "gdT_1 (c2)", "5" = "Tnaive (c1)",
-                                   "6" = "NK_T (c3)", "7" = "Tnaive (c1)",
+                                   "2" = "Tinf (c1)", "3" = "Trm (c0)",
+                                   "4" = "gdT_1 (c2)", "5" = "Tinf (c1)",
+                                   "6" = "NK_T (c3)", "7" = "Tinf (c1)",
                                    "8" = "CD8mem (c4)", "9" = "gdT_2 (c5)",
                                    "10" = "Trm (c0)", "11" = "Treg (c6)",
                                    "12" = "Trm (c0)", "13" = "ILC2 (c7)",
@@ -114,12 +114,12 @@ table(Idents(seu.obj))
 seu.obj$clusterID_final <- Idents(seu.obj)
 
 
-
 ### Fig extra - check QC params
 features <- c("nCount_RNA", "nFeature_RNA", "percent.mt")
 p <- prettyFeats(seu.obj = seu.obj, nrow = 1, ncol = 3, features = features, 
                  color = "black", order = F, pt.size = 0.0000001, title.size = 18)
 ggsave(paste("./output/", outName, "/",outName, "_QC_feats.png", sep = ""), width = 9, height = 3)
+
 
 ### Fig extra - run singleR
 singleR(seu.obj = seu.obj, outName = "230913_tcell_duod_h3c4_NoIntrons_2500", clusters = "clusterID_sub", outDir = "./output/singleR/")
@@ -146,6 +146,7 @@ ExportToCB_cus(seu.obj = seu.obj, dataset.name = outName, outDir = "./output/cb_
                          "IL13", "IL17RB", "NCR3","F2RL3")
                           
                           )
+
 
 ### Fig Supp 2a - tcell unsupervised clustering
 pi <- DimPlot(seu.obj, 
@@ -180,7 +181,6 @@ p <- p + inset_element(axes,left= 0,
                        top = 0.25,
                        align_to = "full")
 ggsave(paste0("./output/", outName, "/", outName, "_supp2a.png"), width = 7, height = 7)
-
 
 
 ### Fig 2a - tcell unsupervised clustering
@@ -248,10 +248,10 @@ pi <- majorDot(seu.obj = seu.obj, groupBy = "majorID_sub",
 ggsave(paste("./output/", outName, "/", outName, "_fig2b.png", sep = ""), width =9, height = 5)
 
 
-### Fig supp 2b - plot on featPlots
+### Fig extra - plot on featPlots
 p <- prettyFeats(seu.obj = seu.obj, nrow = 5, ncol = 6, features = features, 
                  color = "black", order = F, pt.size = 0.0000001, title.size = 8, noLegend = T)
-ggsave(paste("./output/", outName, "/",outName, "_supp2b.png", sep = ""), width = 12, height = 10)
+ggsave(paste("./output/", outName, "/",outName, "_tcell_featPlots.png", sep = ""), width = 12, height = 10)
 
 
 ### Fig supp 2c - transfer TRDC data from ROS data
@@ -268,10 +268,10 @@ colnames(seu.obj.ros@assays$RNA@data) <- ifelse(grepl("_3",rownames(seu.obj.ros@
 
 seu.obj.Hsub <- AddMetaData(seu.obj.Hsub, metadata = seu.obj.ros@assays$RNA@data[rownames(seu.obj.ros@assays$RNA@data) == "TRDC",], col.name = "TRDC")
 
-features = c("TRDC")
+features = c("TRDC", "ENSCAFG00000030206")
 
-p <- prettyFeats(seu.obj = seu.obj.Hsub, nrow = 1, ncol = 1, features = features, color = "black", order = F) 
-ggsave(paste("./output/", outName, "/", outName, "_supp_2c.png", sep = ""), width = 7, height = 7)
+p <- prettyFeats(seu.obj = seu.obj.Hsub, nrow = 1, ncol = 2, features = features, color = "black", order = F) 
+ggsave(paste("./output/", outName, "/", outName, "_supp_2b.png", sep = ""), width = 8, height = 4)
 
 
 ### Fig - reference map using PBMC data
@@ -338,6 +338,22 @@ pi <- formatUMAP(plot = pi)
 ggsave(paste("./output/", outName,"/",outName, "_umap_Predicted_gutAtlas.png", sep = ""), width = 10, height = 7)
 
 
+### Fig supp 2c - umap by sample
+Idents(seu.obj) <- "cellSource"
+set.seed(12)
+seu.obj.ds <- subset(x = seu.obj, downsample = min(table(seu.obj@meta.data$cellSource)))
+pi <- DimPlot(seu.obj.ds, 
+              reduction = "umap", 
+              group.by = "name2",
+              cols = unique(seu.obj.ds$colz), #check colorization is correct
+              pt.size = 0.5,
+              label = FALSE,
+              shuffle = TRUE
+)
+pi <- formatUMAP(pi) + labs(colour="") + theme(legend.position = "top", legend.direction = "horizontal",legend.title=element_text(size=12)) + guides(colour = guide_legend(nrow = 1, override.aes = list(size = 4)))
+ggsave(paste("./output/", outName, "/", outName, "_supp2c.png", sep = ""), width =7, height = 7)
+
+
 ### Fig 2c - Evlauate cell frequency by majorID_sub
 freqy <- freqPlots(seu.obj, method = 1, nrow= 1, groupBy = "majorID_sub", legTitle = "Cell source",refVal = "name2", showPval = T,
                    namez = unique(seu.obj$name2), 
@@ -353,19 +369,19 @@ res.ftest <- lapply(levels(freqy$data$majorID_sub), function (x){
 })
 
 
-### Fig 2d - DEG between Trm and Tnaive
+### Fig 2d - DEG between Trm and Tinf
 p_volc <- btwnClusDEG(seu.obj = seu.obj, groupBy = "clusterID_final", idents.1 = "0", idents.2 = "1", bioRep = "name2",padj_cutoff = 0.05, lfcCut = 0.58, 
                       minCells = 25, outDir = paste0("./output/", outName, "/"), 
-                      title = "Trm_vs_Tnaive", idents.1_NAME = "Trm", idents.2_NAME = "Tnaive", 
+                      title = "Trm_vs_Tinf", idents.1_NAME = "Trm", idents.2_NAME = "Tinf", 
                       returnVolc = T, doLinDEG = F, paired = T, addLabs = NULL, lowFilter = T, dwnSam = F, setSeed = 24
                     )
 
-p  <- prettyVolc(plot = p_volc[[1]], rightLab = "Up in Trm", leftLab = "Up in Tnaive", arrowz = T) + labs(x = "log2(FC) Trm vs Tnaive") + NoLegend()
+p  <- prettyVolc(plot = p_volc[[1]], rightLab = "Up in Trm", leftLab = "Up in Tinf", arrowz = T) + labs(x = "log2(FC) Trm vs Tinf") + NoLegend()
 ggsave(paste("./output/", outName, "/", outName, "_fig2d.png", sep = ""), width = 7, height = 7)
 
 
 ### Fig 2e: gsea of the DGE results
-p <- plotGSEA(pwdTOgeneList = "./output/tcell/Trm_vs_Tnaive_all_genes.csv", category = "C5", subcategory = NULL, 
+p <- plotGSEA(pwdTOgeneList = "./output/tcell/Trm_vs_Tinf_all_genes.csv", category = "C5", subcategory = NULL, 
               upCol = "blue", dwnCol = "red", size = 4.5) 
 
 minVal <- -12
@@ -384,7 +400,7 @@ pi <- p + scale_x_continuous(limits = c(minVal, maxVal), name = "Signed log10(pa
 
     annotate(geom = "text", x = (minVal-0.1*1.5)/2-0.1*1.5, 
              y = 18,
-             label = "Up in Tnaive",
+             label = "Up in Tinf",
              hjust = 0.5,
              vjust = 1.5,
              size = 5) +
