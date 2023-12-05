@@ -255,7 +255,7 @@ seu.obj <- subset(seu.obj, subset = majorID %in% c("tcell", "cycling"))
 
 #add new metadata level for coorelation
 meta.df <- seu.obj@meta.data
-meta.df <- meta.df %>% mutate(immuneClass = ifelse(celltype.l3 %in% c("Tnaive","Treg"), "Tinf", ifelse(celltype.l3 %in% c("Trm","gdT_1","gdT_2"), "Trm", "Tother")))
+meta.df <- meta.df %>% mutate(immuneClass = ifelse(celltype.l3 %in% c("Tnaive","Treg"), "Tinf", ifelse(celltype.l3 %in% c("Trm","gdT_1","gdT_2"), "Trm", "T other")))
 seu.obj@meta.data <- meta.df
 
 #get the true cell type percentages as determined using scRNA seq
@@ -323,7 +323,7 @@ tsub.df$value <- round(tsub.df$value, 2)
 pctT.tsub.df <- tsub.df[tsub.df$variable == "pct_susT_CD4inf" | tsub.df$variable == "pct_susT_CD8inf" | tsub.df$variable == "pct_susT_Trm" | tsub.df$variable == "pct_susT_Trm" | tsub.df$variable == "pct_susT_Tinf" | tsub.df$variable == "pct_susT_other", ]
 pctT.tsub.df$ClusterID <- factor(pctT.tsub.df$variable)
 pctT.tsub.df$variable <- NULL
-levels(pctT.tsub.df$ClusterID) <- c("CD4inf", "CD8inf", "Trm", "Tinf", "Tother")
+levels(pctT.tsub.df$ClusterID) <- c("CD4inf", "CD8inf", "Trm", "Tinf", "T other")
 
 conversion.df <- read.csv("./bulk_decoder.csv")
 
@@ -332,7 +332,7 @@ pctT.tsub.df <- pctT.tsub.df %>% left_join(conversion.df, by = c("sample" = "bul
 pctT.tsub.df$parent <- NULL
 pctT.tsub.df <- pctT.tsub.df[ ,c(4,3,2)]
 colnames(pctT.tsub.df) <- c("Sample", "ClusterID", "pct")
-pctT.tsub.df <- pctT.tsub.df[pctT.tsub.df$ClusterID == "Trm" | pctT.tsub.df$ClusterID == "Tinf" | pctT.tsub.df$ClusterID == "Tother", ]
+pctT.tsub.df <- pctT.tsub.df[pctT.tsub.df$ClusterID == "Trm" | pctT.tsub.df$ClusterID == "Tinf" | pctT.tsub.df$ClusterID == "T other", ]
 
 plotData <- pctT.tsub.df %>% left_join(as.data.frame(cluster_freq.table)[ ,c(1,2,4)], by = c("Sample", "ClusterID"), suffix = c("Flow", "Scrna"))
 
@@ -353,7 +353,7 @@ ggplot(plotData, aes(x=pctFlow, y=pctScrna)) +
                 scale_y_continuous(limits = c(0, 1),expand = c(0, 0)) +
                 labs(x = "Percentage by flow cytometry", y = "Percentage by scRNA") +
                 guides(color = guide_legend(title = "Cell type", size = 3, override.aes=list(fill=NA))) +
-                geom_text(x = .5, y = .05, label = as.character(as.expression(eq)), parse = TRUE) +
+                geom_text(x = .6, y = .05, label = as.character(as.expression(eq)), parse = TRUE) +
                 theme(panel.background = element_rect(fill = "transparent",colour = NA),
                       plot.background = element_rect(fill = "transparent",colour = NA),
                       legend.background = element_rect(fill = "transparent",colour = NA),
@@ -362,18 +362,20 @@ ggplot(plotData, aes(x=pctFlow, y=pctScrna)) +
                       panel.grid.minor = element_line(color = "gray"),
                       #axis.text = element_blank(), 
                       axis.ticks = element_blank(),
-                      axis.title = element_text(size= 14),
+                      axis.title = element_text(size = 14),
+                      legend.title = element_text(size = 12),
+                      legend.text = element_text(size = 10),
                       #plot.title = element_text(hjust = 0.02),
                       #plot.title.position = "plot",
                       plot.title = element_blank(),
                       title = element_text(size= 16),
                       axis.line = element_blank(),
-                      legend.position = c(0.20, 0.8),
+                      legend.position = c(0.15, 0.82),
                       plot.margin = margin(7, 10, 7, 7, "pt"),
                       panel.border = element_rect(color = "black",
                                                   fill = NA,
                                                   size = 2)
-                      ) + scale_colour_manual(values=c("#645A9F", "#FF755F", "#009DA5"))
+                      ) + scale_colour_manual(values=c("red", "blue", "grey40"))
                 
 ggsave(paste("./output/", outName, "/", outName, "_FlowCoorPlot_Tsub.png.png", sep = ""), width = 4, height = 4)
 
