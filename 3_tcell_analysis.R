@@ -122,7 +122,25 @@ ggsave(paste("./output/", outName, "/",outName, "_QC_feats.png", sep = ""), widt
 
 
 ### Fig extra - run singleR
-singleR(seu.obj = seu.obj, outName = "230913_tcell_duod_h3c4_NoIntrons_2500", clusters = "clusterID_sub", outDir = "./output/singleR/")
+pp <- singleR(seu.obj = seu.obj, outName = "230913_tcell_duod_h3c4_NoIntrons_2500", clusters = "clusterID_sub", outDir = "./output/singleR/")
+namez <- pp[[1]]$SingleR.human_ref1
+names(namez) <- rownames(pp[[1]])
+
+seu.obj <- AddMetaData(seu.obj, namez, col.name = "SingleR_ref1")
+
+pi <- DimPlot(seu.obj, 
+              reduction = "umap", 
+              group.by = "SingleR_ref1",
+              #cols = levels(seu.obj.ds$colz), #check colorization is correct
+              pt.size = 0.25,
+              label = T,
+              label.box = T,
+              shuffle = F
+)
+pi <- formatUMAP(plot = pi) + NoLegend() + theme(plot.title = element_text(size = 18, vjust = 1),
+                                                 axis.title = element_blank(),
+                                                 panel.border = element_blank()) + ggtitle("SingleR Human Primary Cell Atlas reference")
+ggsave(paste0("./output/", outName, "/", outName, "_supp2c.png"), width = 7, height = 7)
 
 #generate violin plots for each cluster
 vilnPlots(seu.obj = seu.obj, groupBy = "clusterID_sub", numOfFeats = 24, outName = "230913_tcell_duod_h3c4_NoIntrons_2500",
@@ -153,7 +171,7 @@ pi <- DimPlot(seu.obj,
         reduction = "umap", 
         group.by = "clusterID_sub",
         pt.size = 0.25,
-              cols = colz.df$V1,
+#               cols = colz.df$V1,
 
         label = TRUE,
         label.box = TRUE
@@ -201,8 +219,8 @@ theme(axis.line = element_line(colour = "black",
                                arrow = arrow(angle = 30, length = unit(0.1, "inches"),
                                              ends = "last", type = "closed"),
                               ),
-      axis.title.y = element_text(colour = "black", size = 12),
-      axis.title.x = element_text(colour = "black", size = 12),
+      axis.title.y = element_text(colour = "black", size = 20),
+      axis.title.x = element_text(colour = "black", size = 20),
       panel.border = element_blank(),
       panel.background = element_rect(fill = "transparent",colour = NA),
       plot.background = element_rect(fill = "transparent",colour = NA),
@@ -302,9 +320,10 @@ pi <- DimPlot(seu.obj,
               label.box = T,
               shuffle = F
 )
-pi <- formatUMAP(plot = pi)
-ggsave(paste("./output/", outName,"/",outName, "_umap_Predicted.png", sep = ""), width = 10, height = 7)
-
+pi <- formatUMAP(plot = pi) + NoLegend() + theme(plot.title = element_text(size = 18, vjust = 1),
+                                                 axis.title = element_blank(),
+                                                 panel.border = element_blank()) + ggtitle("Canine PBMC reference mapping")
+ggsave(paste("./output/", outName,"/",outName, "_umap_Predicted.png", sep = ""), width = 7, height = 7)
 
 ### Fig - reference map using gut atlas data
 reference <- MuDataSeurat::ReadH5AD("/pl/active/dow_lab/dylan/k9_duod_scRNA/analysis/Tcell_log_counts02_v2.h5ad")
@@ -334,8 +353,37 @@ pi <- DimPlot(seu.obj,
               label.box = T,
               shuffle = F
 )
-pi <- formatUMAP(plot = pi)
-ggsave(paste("./output/", outName,"/",outName, "_umap_Predicted_gutAtlas.png", sep = ""), width = 10, height = 7)
+pi <- formatUMAP(plot = pi) + NoLegend() + theme(plot.title = element_text(size = 18, vjust = 1),
+                                                 axis.title = element_blank(),
+                                                 panel.border = element_blank()) + ggtitle("Human T cell reference mapping")
+ggsave(paste("./output/", outName,"/",outName, "_umap_Predicted_gutAtlas.png", sep = ""), width = 7, height = 7)
+
+
+
+### Fig supp: plot enrichment scores
+ecLists <- read.csv("gut_ecTerms.csv", header = T)
+ecLists <- ecLists[ecLists$lineage == "T_NK_cells", ]
+
+modulez <- split(ecLists$genes, ecLists$cluster)
+
+modulez <- modulez[unname(unlist(lapply(unlist(lapply(modulez, length)), function(x){ifelse(x >= 10, TRUE, FALSE)})))]
+
+names(modulez) <- paste0(names(modulez),"_SIG")
+
+seu.obj <- AddModuleScore(seu.obj,
+                          features = modulez,
+                         name = "_score")
+
+names(seu.obj@meta.data)[grep("_score", names(seu.obj@meta.data))] <- names(modulez)
+
+features <- names(modulez)
+
+p <- majorDot(seu.obj = seu.obj, groupBy = "majorID_sub",
+                     features = features
+                    ) + theme(legend.position = "bottom",
+                              axis.title.y = element_blank(),
+                              plot.margin = margin(7, 7, 0, 100, "pt")) + scale_y_discrete(position = "right") + guides(size = guide_legend(nrow = 2, byrow = F, title = 'Percent\nenriched')) + guides(color = guide_colorbar(title = 'Scaled\nenrichment score')) 
+ggsave(paste("./output/", outName, "/", outName, "_gut_modScores.png", sep = ""), width = 8, height = 6)
 
 
 ### Fig supp 2c - umap by sample
@@ -346,12 +394,16 @@ pi <- DimPlot(seu.obj.ds,
               reduction = "umap", 
               group.by = "name2",
               cols = unique(seu.obj.ds$colz), #check colorization is correct
-              pt.size = 0.5,
+              pt.size = 0.25,
               label = FALSE,
               shuffle = TRUE
 )
-pi <- formatUMAP(pi) + labs(colour="") + theme(legend.position = "top", legend.direction = "horizontal",legend.title=element_text(size=12)) + guides(colour = guide_legend(nrow = 1, override.aes = list(size = 4)))
-ggsave(paste("./output/", outName, "/", outName, "_supp2c.png", sep = ""), width =7, height = 7)
+p <- formatUMAP(pi) + labs(colour="") + theme(axis.title = element_blank(),
+                                               panel.border = element_blank(),
+                                                  legend.position = "top", 
+                                              legend.justification = "center",
+                                              legend.direction = "horizontal",legend.title=element_text(size=12)) + guides(colour = guide_legend(nrow = 1, override.aes = list(size = 4)))
+ggsave(paste("./output/", outName, "/", outName, "_supp2f.png", sep = ""), width =7, height = 7)
 
 
 ### Fig 2c - Evlauate cell frequency by majorID_sub

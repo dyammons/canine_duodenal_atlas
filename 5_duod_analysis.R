@@ -226,8 +226,10 @@ pi <- DimPlot(seu.obj,
               label.box = T,
               shuffle = F
 )
-pi <- formatUMAP(plot = pi)
-ggsave(paste("./output/", outName,"/",outName, "_umap_Predicted_gutAtlas.png", sep = ""), width = 10, height = 7)
+pi <- formatUMAP(plot = pi) + NoLegend() + theme(plot.title = element_text(size = 18, vjust = 1),
+                                                 axis.title = element_blank(),
+                                                 panel.border = element_blank()) + ggtitle("Human epithelial reference mapping")
+ggsave(paste("./output/", outName,"/",outName, "_umap_Predicted_gutAtlas_epi.png", sep = ""), width = 7, height = 7)
 
 
 ### Fig supp 4b - reference map using the human gut atlas -- mesnechymal reference
@@ -258,8 +260,37 @@ pi <- DimPlot(seu.obj,
               label.box = T,
               shuffle = F
 )
-pi <- formatUMAP(plot = pi)
-ggsave(paste("./output/", outName,"/",outName, "_umap_Predicted_gutAtlas.png", sep = ""), width = 10, height = 7)
+pi <- formatUMAP(plot = pi) + NoLegend() + theme(plot.title = element_text(size = 18, vjust = 1),
+                                                 axis.title = element_blank(),
+                                                 panel.border = element_blank()) + ggtitle("Human mesenchyme reference mapping")
+ggsave(paste("./output/", outName,"/",outName, "_umap_Predicted_gutAtlas_mes.png", sep = ""), width = 7, height = 7)
+
+
+### Fig supp: plot enrichment scores
+ecLists <- read.csv("gut_ecTerms.csv", header = T)
+ecLists <- ecLists[ecLists$lineage == "Epithelial" | ecLists$lineage == "Mesenchymal", ]
+
+modulez <- split(ecLists$genes, ecLists$cluster)
+
+modulez <- modulez[unname(unlist(lapply(unlist(lapply(modulez, length)), function(x){ifelse(x >= 10, TRUE, FALSE)})))]
+
+names(modulez) <- paste0(names(modulez),"_SIG")
+
+seu.obj <- AddModuleScore(seu.obj,
+                          features = modulez,
+                         name = "_score")
+
+names(seu.obj@meta.data)[grep("_score", names(seu.obj@meta.data))] <- names(modulez)
+
+features <- names(modulez)
+features <- features[c(9,2,39,28:32,1,11,34,7,8)]
+
+p <- majorDot(seu.obj = seu.obj, groupBy = "majorID_sub",
+                     features = features
+                    ) + theme(legend.position = "bottom",
+                              axis.title.y = element_blank(),
+                              plot.margin = margin(7, 7, 0, 100, "pt")) + scale_y_discrete(position = "right") + guides(size = guide_legend(nrow = 2, byrow = F, title = 'Percent\nenriched')) + guides(color = guide_colorbar(title = 'Scaled\nenrichment score')) 
+ggsave(paste("./output/", outName, "/", outName, "_gut_modScores.png", sep = ""), width = 8, height = 6)
 
 
 ### Fig 4c - evlauate cell frequency by cluster
@@ -340,7 +371,7 @@ genes.df <- read.csv("./output/duod/linDEG/duod_Enterocyte_2geneList.csv")
 geneListUp <- genes.df %>% arrange(p_val_adj) %>% filter(avg_log2FC > 0) %>% .$X
 geneListDwn <- genes.df %>% arrange(p_val_adj) %>% filter(avg_log2FC < 0) %>% .$X
 
-p <- plotGSEA(geneList = geneListUp, geneListDwn = geneListDwn, category = "C5", subcategory = NULL,
+p <- plotGSEA(geneList = geneListUp, geneListDwn = geneListDwn, category = "C5", subcategory = NULL, size = 4.1,
               upCol = "blue", dwnCol = "red") + scale_x_continuous(limits = c(-4.5,6), name = "Signed log10(padj)") + theme( axis.title=element_text(size = 16),
                                                                                                                            title = element_text(size = 20),
                                                                                                                            plot.title = element_text(size = 20, hjust = 0.5)) + ggtitle("Enterocyte_2 gene ontology (CIE vs healthy)")
