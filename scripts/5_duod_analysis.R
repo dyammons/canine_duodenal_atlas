@@ -42,7 +42,7 @@ seu.obj <- dataVisUMAP(seu.obj = seu.obj, outDir = "./output/s3/", outName = "23
                                      "CD4", "MS4A1", "PPBP","HBM")
                        )
 
-#### cluster 10 looks to be T cells -- remove and re-integrate
+### Note cluster 10 looks to be T cells -- remove and re-integrate
 seu.obj.sub <- subset(seu.obj, invert = T,
                       subset = 
                       clusterID_sub ==  "10")
@@ -77,6 +77,7 @@ colz.df <- read.csv("./cellColz.csv", header = F)
 colz.df <- colz.df[colz.df$V2 == "duod", ]
 outName <- "duod"
 
+#stash the new idents
 Idents(seu.obj) <- "clusterID_sub"
 seu.obj <- RenameIdents(seu.obj, c("0" = "Enterocyte_1", "1" = "Enterocyte_1", 
                                    "2" = "Enterocyte_2", "3" = "Enterocyte_1",
@@ -108,7 +109,7 @@ seu.obj <- RenameIdents(seu.obj, newID)
 table(Idents(seu.obj))
 seu.obj$clusterID_final <- Idents(seu.obj)
 
-#generate violin plots for each cluster
+### supp data - cell type gene signatures
 vilnPlots(seu.obj = seu.obj, groupBy = "clusterID_sub", numOfFeats = 24, outName = "230916_duod_duod_h3c4_NoIntrons_2500",
                      outDir = "./output/viln/duod/", outputGeneList = T, filterOutFeats = c("^MT-", "^RPL", "^RPS")
                     )
@@ -118,7 +119,12 @@ vilnPlots(seu.obj = seu.obj, groupBy = "majorID_sub", numOfFeats = 24, outName =
                      outDir = paste0("./output/viln/",outName,"/"), outputGeneList = T, filterOutFeats = c("^MT-", "^RPL", "^ENSCAF", "^RPS")
                     )
 
-#export data fpr cell browser
+surface.markers <- read.csv("./surface_master.csv")[ ,c("UniProt.gene", "UniProt.description", "Surfaceome.Label", "Surfaceome.Label.Source")] %>% filter(!duplicated(UniProt.gene))
+cluster.markers <- read.csv("./output/viln/duod/231022_duod_duod_h3c4_NoIntrons_2500_gene_list.csv")
+write.csv(cluster.markers[ ,c(7,8,2:6)] %>% left_join(surface.markers, by = c("gene" = "UniProt.gene")),
+          file = "./output/supplementalData/epithelial_markers.csv", row.names = F)
+
+### supp data - export data fpr cell browser
 ExportToCB_cus(seu.obj = seu.obj, dataset.name = outName, outDir = "./output/cb_input/", 
                markers = paste0("./output/viln/",outName,"/",saveName,"_gene_list.csv"), 
                reduction = "umap",  colsTOkeep = c("orig.ident", "nCount_RNA", "nFeature_RNA", "percent.mt", "Phase", "majorID",
@@ -199,6 +205,7 @@ ggsave(paste("./output/", outName, "/", outName, "_fig4b.png", sep = ""), width 
 
 ### Fig supp 4b - reference map using the human gut atlas -- epithieal reference
 seu.gut.duod <- MuDataSeurat::ReadH5AD("/pl/active/dow_lab/dylan/k9_duod_scRNA/analysis/epi_log_counts02_v2.h5ad")
+#download reference from https://www.gutcellatlas.org/#datasets
 reference <- seu.gut.duod
 
 reference <- SCTransform(reference, verbose = FALSE)
@@ -234,7 +241,7 @@ ggsave(paste("./output/", outName,"/",outName, "_umap_Predicted_gutAtlas_epi.png
 
 ### Fig supp 4b - reference map using the human gut atlas -- mesnechymal reference
 reference <- MuDataSeurat::ReadH5AD("/pl/active/dow_lab/dylan/k9_duod_scRNA/analysis/Mesenchyme_log_counts02_v2.h5ad")
-
+#download reference from https://www.gutcellatlas.org/#datasets
 reference <- SCTransform(reference, verbose = FALSE)
 reference <- RunPCA(reference)
 
@@ -268,12 +275,11 @@ ggsave(paste("./output/", outName,"/",outName, "_umap_Predicted_gutAtlas_mes.png
 
 ### Fig supp: plot enrichment scores
 ecLists <- read.csv("gut_ecTerms.csv", header = T)
+#download reference from https://www.gutcellatlas.org/#datasets
 ecLists <- ecLists[ecLists$lineage == "Epithelial" | ecLists$lineage == "Mesenchymal", ]
 
 modulez <- split(ecLists$genes, ecLists$cluster)
-
 modulez <- modulez[unname(unlist(lapply(unlist(lapply(modulez, length)), function(x){ifelse(x >= 10, TRUE, FALSE)})))]
-
 names(modulez) <- paste0(names(modulez),"_SIG")
 
 seu.obj <- AddModuleScore(seu.obj,
@@ -376,3 +382,7 @@ p <- plotGSEA(geneList = geneListUp, geneListDwn = geneListDwn, category = "C5",
                                                                                                                            title = element_text(size = 20),
                                                                                                                            plot.title = element_text(size = 20, hjust = 0.5)) + ggtitle("Enterocyte_2 gene ontology (CIE vs healthy)")
 ggsave(paste("./output/", outName, "/", outName, "_fig4f.png", sep = ""), width = 9.5, height = 7)
+
+########################################### <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+#######   end epithelial analysis   ######## <<<<<<<<<<<<<<
+########################################### <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<

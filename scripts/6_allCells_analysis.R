@@ -5,9 +5,9 @@ source("/pl/active/dow_lab/dylan/repos/K9-PBMC-scRNAseq/analysisCode/customFunct
 
 ### complete analysis with n=4 cie
 
-#################################################
-##### Analysis of n3 healthy & n4 CIE douds #####
-#################################################
+########################################### <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+#######   Transfer cell type annotations   ######## <<<<<<<<<<<<<<
+########################################### <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
 ### Metadata transfer from indivudally annotated datasets
 
@@ -23,15 +23,13 @@ seu.obj$cellSource <- factor(seu.obj$cellSource, levels = c("Healthy","CIE"))
 outName <- "allCells"
 subname <- "n3n4"
 
-
+#stash the idents
 Idents(seu.obj) <- "majorID"
 seu.obj <- RenameIdents(seu.obj, c("tcell" = "T cell", "epithelial" = "Epithelial", 
                                    "myeloid" = "Myeloid", "bcell" = "B cell",
                                    "cycling" = "Cycling T cell", "mast" = "Mast cell",
                                    "plasma" = "Plasma cell")
                        )
-
-
 seu.obj$majorID_pertyName <- Idents(seu.obj)
 
 seu.obj <- subset(seu.obj,
@@ -64,9 +62,7 @@ seu.obj <- RenameIdents(seu.obj, c("0" = "Enterocyte_1", "1" = "Enterocyte_1",
                                    "24" = "Enteroendocrine")
                        )
 
-
 seu.obj$majorID_sub <- Idents(seu.obj)
-
 ct.l3 <- c(ct.l3,seu.obj$majorID_sub)
 
 #load in processed myeloid subset data
@@ -75,7 +71,6 @@ seu.obj$cellSource <- factor(seu.obj$cellSource, levels = c("Healthy","CIE"))
 colz.df <- read.csv("./cellColz.csv", header = F)
 colz.df <- colz.df[colz.df$V2 == "myeloid", ]
 outName <- "myeloid"
-
 
 Idents(seu.obj) <- "clusterID_sub"
 seu.obj <- RenameIdents(seu.obj, c("0" = "Monocyte", "1" = "Neutrophil", 
@@ -127,9 +122,7 @@ seu.obj <- RenameIdents(seu.obj, c("tcell" = "T cell", "epithelial" = "Epithelia
                                    "cycling" = "Cycling T cell", "mast" = "Mast cell", "plasma" = "Plasma cell")
                        )
 
-
 seu.obj$majorID_pertyName <- Idents(seu.obj)
-
 
 seu.obj <- AddMetaData(seu.obj, metadata = ct.l3, col.name = "celltype.l3")
 
@@ -142,7 +135,9 @@ seu.obj$celltype.l3 <- droplevels(seu.obj$celltype.l3)
 # saveRDS(seu.obj, "./output/s3/canine_duodenum_annotated.rds")
 
 
-### Proper analysis of the dataset
+########################################### <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+#######   begin all cells analysis   ######## <<<<<<<<<<<<<<
+########################################### <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
 #load in annotated dataset
 seu.obj <- readRDS("./output/s3/canine_duodenum_annotated.rds")
@@ -173,13 +168,27 @@ vilnPlots(seu.obj = seu.obj, groupBy = "majorID_pertyName", numOfFeats = 24, out
                      outDir = paste0("./output/viln/",outName,"/"), outputGeneList = T, filterOutFeats = c("^MT-", "^RPL", "^RPS")
                     )
 
+#export surface marker data with finaallmarkers
+surface.markers <- read.csv("./surface_master.csv")[ ,c("UniProt.gene", "UniProt.description", "Surfaceome.Label", "Surfaceome.Label.Source")] %>% filter(!duplicated(UniProt.gene))
+cluster.markers <- read.csv("./output/viln/allCells/231022_allCells_duod_h3c4_NoIntrons_2500_gene_list.csv")
+write.csv(cluster.markers[ ,c(7,8,2:6)] %>% left_join(surface.markers, by = c("gene" = "UniProt.gene")),
+          file = "./output/supplementalData/majorID_markers.csv", row.names = F)
+
+
+
 saveName <- "231204_allCells_duod_h3c4_NoIntrons_2500"
 vilnPlots(seu.obj = seu.obj, groupBy = "celltype.l3", numOfFeats = 24, outName = saveName,
                      outDir = paste0("./output/viln/",outName,"/"), outputGeneList = T, filterOutFeats = c("^MT-", "^RPL", "^RPS")
                     )
 
+#export surface marker data with finaallmarkers
+surface.markers <- read.csv("./surface_master.csv")[ ,c("UniProt.gene", "UniProt.description", "Surfaceome.Label", "Surfaceome.Label.Source")] %>% filter(!duplicated(UniProt.gene))
+cluster.markers <- read.csv("./output/viln/allCells/231204_allCells_duod_h3c4_NoIntrons_2500_gene_list.csv")
+write.csv(cluster.markers[ ,c(7,8,2:6)] %>% left_join(surface.markers, by = c("gene" = "UniProt.gene")),
+          file = "./output/supplementalData/ctl3_markers.csv", row.names = F)
 
-### Supp data - export data for cell browser
+
+#export data for cellbrowser
 ExportToCB_cus(seu.obj = seu.obj, dataset.name = outName, outDir = "./output/cb_input/", 
                markers = paste0("./output/viln/",outName,"/",saveName,"_gene_list.csv"), 
                reduction = "umap",  colsTOkeep = c("orig.ident", "nCount_RNA", "nFeature_RNA", "percent.mt", "Phase", "majorID",
@@ -264,7 +273,7 @@ pi <- p + inset_element(axes,left= 0,
 ggsave(paste("./output/", outName,  "/", subname,"/", outName, "_fig1a.png", sep = ""), width = 7, height = 7)
 
 
-### Fig - reference map using PBMC data
+### Fig supp - reference map using PBMC data
 reference <- readRDS(file = "../../k9_PBMC_scRNA/analysis/output/s3/final_dataSet_HvO.rds")
 reference[['integrated']] <- as(object = reference[['integrated']] , Class = "SCTAssay")
 
@@ -300,7 +309,8 @@ ggsave(paste("./output/", outName,"/",outName, "_umap_Predicted_PBMC.png", sep =
 
 gc()
 
-### Fig - reference map using human epithelial data
+
+### Fig supp - reference map using human epitheial data
 reference <- MuDataSeurat::ReadH5AD("/pl/active/dow_lab/dylan/k9_duod_scRNA/analysis/epi_log_counts02_v2.h5ad")
 
 reference <- SCTransform(reference, verbose = FALSE)
@@ -337,7 +347,7 @@ ggsave(paste("./output/", outName, "/", subname,"/",outName, "_umap_Predicted_hu
 
 gc()
 
-### Fig - reference map using human epithelial data
+### Fig supp - reference map using human t cell data
 reference <- MuDataSeurat::ReadH5AD("/pl/active/dow_lab/dylan/k9_duod_scRNA/analysis/Tcell_log_counts02_v2.h5ad")
 
 reference <- SCTransform(reference, verbose = FALSE)
@@ -373,7 +383,6 @@ p <- formatUMAP(plot = pi) + NoLegend() + theme(plot.title = element_text(size =
 ggsave(paste("./output/", outName, "/", subname,"/",outName, "_umap_Predicted_hu_tcell.png", sep = ""), width = 7, height = 7)
 
 gc()
-
 
 ### Fig 1b - dot plot by major cell types
 fig1c <- majorDot(seu.obj = seu.obj, groupBy = "majorID_pertyName",

@@ -45,12 +45,10 @@ seu.obj <- dataVisUMAP(seu.obj = seu.obj, outDir = "./output/s3/", outName = "23
                                      "CD4", "MS4A1", "PPBP","HBM")
                        )
 
-
 #generate violin plots for each cluster
 vilnPlots(seu.obj = seu.obj, groupBy = "clusterID_sub", numOfFeats = 24, outName = "230829_tcell_duod_h3c4_NoIntrons_2500",
                      outDir = "./output/viln/tcell/", outputGeneList = T, filterOutFeats = c("^MT-", "^RPL", "^ENSCAF", "^RPS")
                     )
-
 
 #remove susspected low quality cluster
 seu.obj.sub <- subset(seu.obj, invert = T,
@@ -82,11 +80,13 @@ seu.obj <- dataVisUMAP(seu.obj = seu.obj, outDir = "./output/s3/", outName = "23
 #######   begin T cell analysis   ######## <<<<<<<<<<<<<<
 ########################################### <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
+#load in processed data
 seu.obj <- readRDS("/pl/active/dow_lab/dylan/k9_duod_scRNA/analysis/output/s3/230913_tcell_duod_h3c4_NoIntrons_2500_res0.6_dims35_dist0.3_neigh30_S3.rds")
 seu.obj$cellSource <- factor(seu.obj$cellSource, levels = c("Healthy","CIE"))
 colz.df <- read.csv("./cellColz.csv", header = F)
 outName <- "tcell"
 
+#stash new cell idents
 Idents(seu.obj) <- "clusterID_sub"
 seu.obj <- RenameIdents(seu.obj, c("0" = "Trm (c0)", "1" = "Trm (c0)", 
                                    "2" = "Tinf (c1)", "3" = "Trm (c0)",
@@ -142,6 +142,9 @@ pi <- formatUMAP(plot = pi) + NoLegend() + theme(plot.title = element_text(size 
                                                  panel.border = element_blank()) + ggtitle("SingleR Human Primary Cell Atlas reference")
 ggsave(paste0("./output/", outName, "/", outName, "_supp2c.png"), width = 7, height = 7)
 
+
+### supp data - cell type gene signatures
+
 #generate violin plots for each cluster
 vilnPlots(seu.obj = seu.obj, groupBy = "clusterID_sub", numOfFeats = 24, outName = "230913_tcell_duod_h3c4_NoIntrons_2500",
                      outDir = paste0("./output/viln/",outName,"/"), outputGeneList = T, filterOutFeats = c("^MT-", "^RPL", "^RPS")
@@ -152,7 +155,14 @@ vilnPlots(seu.obj = seu.obj, groupBy = "majorID_sub", numOfFeats = 24, outName =
                      outDir = paste0("/output/viln/",outName,"/"), outputGeneList = T, filterOutFeats = c("^MT-", "^RPL", "^ENSCAF", "^RPS")
                     )
 
-#export data for cell browser
+#export surface marker data with FindAllMarkers
+surface.markers <- read.csv("./surface_master.csv")[ ,c("UniProt.gene", "UniProt.description", "Surfaceome.Label", "Surfaceome.Label.Source")] %>% filter(!duplicated(UniProt.gene))
+cluster.markers <- read.csv("./output/viln/tcell/231022_tcell_duod_h3c4_NoIntrons_2500_gene_list.csv")
+write.csv(cluster.markers[ ,c(7,8,2:6)] %>% left_join(surface.markers, by = c("gene" = "UniProt.gene")),
+          file = "./output/supplementalData/tcell_markers.csv", row.names = F)
+
+
+### supp data - export data for cell browser
 ExportToCB_cus(seu.obj = seu.obj, dataset.name = outName, outDir = "./output/cb_input/", 
                markers = paste0("./output/viln/",outName,"/",saveName,"_gene_list.csv"), 
                reduction = "umap",  colsTOkeep = c("orig.ident", "nCount_RNA", "nFeature_RNA", "percent.mt", "Phase", "majorID",
@@ -258,7 +268,6 @@ features <- c("TRAT1","GZMA","GZMB","SYNE1","AKAP5","SEMA7A",
               "NCR3","F2RL3","KLRB1","IL12RB2",
               "IFI44","OAS1","ISG15")
 
-
 pi <- majorDot(seu.obj = seu.obj, groupBy = "majorID_sub",
                features = features
               ) + theme(axis.title = element_blank(),
@@ -293,7 +302,9 @@ ggsave(paste("./output/", outName, "/", outName, "_supp_2b.png", sep = ""), widt
 
 
 ### Fig - reference map using PBMC data
-reference <- readRDS(file = "../../k9_PBMC_scRNA/analysis/output/s3/final_dataSet_HvO.rds")
+reference <- readRDS(file = "../../k9_PBMC_scRNA/analysis/output/s3/final_dataSet_HvO.rds") 
+#download reference with utils::download.file("https://ftp.ncbi.nlm.nih.gov/geo/series/GSE225nnn/GSE225599/suppl/GSE225599_final_dataSet_HvO.rds.gz", dest = "/pwd/to/dir/final_dataSet_HvO.rds.gz")
+
 reference[['integrated']] <- as(object = reference[['integrated']] , Class = "SCTAssay")
 
 DefaultAssay(reference) <- "integrated"
@@ -325,8 +336,10 @@ pi <- formatUMAP(plot = pi) + NoLegend() + theme(plot.title = element_text(size 
                                                  panel.border = element_blank()) + ggtitle("Canine PBMC reference mapping")
 ggsave(paste("./output/", outName,"/",outName, "_umap_Predicted.png", sep = ""), width = 7, height = 7)
 
+
 ### Fig - reference map using gut atlas data
 reference <- MuDataSeurat::ReadH5AD("/pl/active/dow_lab/dylan/k9_duod_scRNA/analysis/Tcell_log_counts02_v2.h5ad")
+#download reference from https://www.gutcellatlas.org/#datasets
 
 reference <- SCTransform(reference, verbose = FALSE)
 reference <- RunPCA(reference)
@@ -359,15 +372,12 @@ pi <- formatUMAP(plot = pi) + NoLegend() + theme(plot.title = element_text(size 
 ggsave(paste("./output/", outName,"/",outName, "_umap_Predicted_gutAtlas.png", sep = ""), width = 7, height = 7)
 
 
-
-### Fig supp: plot enrichment scores
+### Fig extra: plot enrichment scores
 ecLists <- read.csv("gut_ecTerms.csv", header = T)
 ecLists <- ecLists[ecLists$lineage == "T_NK_cells", ]
 
 modulez <- split(ecLists$genes, ecLists$cluster)
-
 modulez <- modulez[unname(unlist(lapply(unlist(lapply(modulez, length)), function(x){ifelse(x >= 10, TRUE, FALSE)})))]
-
 names(modulez) <- paste0(names(modulez),"_SIG")
 
 seu.obj <- AddModuleScore(seu.obj,
@@ -375,7 +385,6 @@ seu.obj <- AddModuleScore(seu.obj,
                          name = "_score")
 
 names(seu.obj@meta.data)[grep("_score", names(seu.obj@meta.data))] <- names(modulez)
-
 features <- names(modulez)
 
 p <- majorDot(seu.obj = seu.obj, groupBy = "majorID_sub",
@@ -474,6 +483,7 @@ pi <- p + scale_x_continuous(limits = c(minVal, maxVal), name = "Signed log10(pa
 
 
 ggsave(paste("./output/", outName, "/", outName, "_fig2e.png", sep = ""), width = 10, height = 7)
+
 
 ########################################### <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 #######   end T cell analysis   ######## <<<<<<<<<<<<<<

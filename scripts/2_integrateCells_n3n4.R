@@ -5,7 +5,11 @@ source("/pl/active/dow_lab/dylan/repos/K9-PBMC-scRNAseq/analysisCode/customFunct
 
 ### complete analysis with n=4 cie
 
-### Begin analysis
+########################################### <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+#######   begin all cell preprocessing   ######## <<<<<<<<<<<<<<
+########################################### <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+### load in the object that contains non-CIE diseased dogs
 seu.obj <- readRDS("./output/s3/230706_duod_h3c6_NoIntrons_res0.4_dims50_dist0.5_neigh40_S3.rds")
 
 #load in meta data
@@ -18,18 +22,22 @@ seu.obj$cellSource <- factor(seu.obj$cellSource, levels = c("Healthy", "CIE"))
 outName <- "allCells"
 colArray <- read.csv("./refColz.csv", header = T)
 
+#subset on samples to include
 table(seu.obj$exclude)
 seu.obj <- subset(seu.obj,
                   subset = 
                   exclude ==  "keep")
 
+#complete independent reclustering
 seu.obj <- indReClus(seu.obj = seu.obj, outDir = "./output/s2/", subName = "230706_duod_h3c4_NoIntrons", preSub = T, nfeatures = 2500,
                       vars.to.regress = "percent.mt"
-                       )s
+                       )
 
+#clustree to determine clus resolution
 # seu.obj <- readRDS(file = "./output/s2/230706_duod_h3c4_NoIntrons_S2.rds")
 clusTree(seu.obj = seu.obj, dout = "./output/clustree/", outName = "230706_duod_h3c4_NoIntrons", test_dims = 40, algorithm = 3, prefix = "integrated_snn_res.")
 
+#visulize the data & evaluate
 seu.obj <- dataVisUMAP(seu.obj = seu.obj, outDir = "./output/s3/", outName = "230706_duod_h3c4_NoIntrons", final.dims = 40, final.res = 0.3, stashID = "clusterID2", 
                         algorithm = 3, prefix = "integrated_snn_res.", min.dist = 0.3, n.neighbors = 50, assay = "integrated", saveRDS = T,
                         features = c("PTPRC", "CD3E", "CD8A", "GZMA", 
@@ -44,21 +52,22 @@ p <- prettyFeats(seu.obj = seu.obj, nrow = 1, ncol = 3, features = features,
 ggsave(paste("./output/", outName, "/", subname,"/",outName, "_QC_feats.png", sep = ""), width = 9, height = 3)
 
 
-
-#note: cluster 10 looks susspect -- filtering out (low nFeature and no clear defining feats)
+### Note: cluster 10 looks susspect -- filtering out (low nFeature and no clear defining feats)
 seu.obj <- subset(seu.obj, invert = T,
                   subset = 
                   clusterID2 ==  "10")
 table(seu.obj$clusterID2)
 
-
+#complete independent reclustering
 seu.obj <- indReClus(seu.obj = seu.obj, outDir = "./output/s2/", subName = "230816_duod_h3c4_NoIntrons", preSub = T, nfeatures = 2500,
                       vars.to.regress = "percent.mt"
                        )
 
+#clustree to determine clus resolution
 # seu.obj <- readRDS(file = "./output/s2/230713_duod_h3c4_NoIntrons_S2.rds")
 # clusTree(seu.obj = seu.obj, dout = "./output/clustree/", outName = "230606_duod_h3c3_NoIntrons", test_dims = 40, algorithm = 3, prefix = "integrated_snn_res.")
 
+#visulize the data & evaluate
 seu.obj <- dataVisUMAP(seu.obj = seu.obj, outDir = "./output/s3/", outName = "230816_duod_h3c4_NoIntrons", final.dims = 40, final.res = 1.3, stashID = "clusterID_2_1", 
                         algorithm = 3, prefix = "integrated_snn_res.", min.dist = 0.3, n.neighbors = 50, assay = "integrated", saveRDS = T,
                         features = c("PTPRC", "CD3E", "CD8A", "GZMA", 
@@ -66,3 +75,6 @@ seu.obj <- dataVisUMAP(seu.obj = seu.obj, outDir = "./output/s3/", outName = "23
                                      "CD4", "MS4A1", "PPBP","HBM")
                        )
 
+########################################### <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+#######   end all cell preprocessing   ######## <<<<<<<<<<<<<<
+########################################### <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<

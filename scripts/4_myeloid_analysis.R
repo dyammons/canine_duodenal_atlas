@@ -3,6 +3,10 @@
 #load custom functions & packages
 source("/pl/active/dow_lab/dylan/repos/K9-PBMC-scRNAseq/analysisCode/customFunctions.R")
 
+########################################### <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+#######   begin meyloid cell preprocessing   ######## <<<<<<<<<<<<<<
+########################################### <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
 #read in processed "All cells" dataset
 seu.obj <- readRDS("/pl/active/dow_lab/dylan/k9_duod_scRNA/analysis/output/s3/230816_duod_h3c4_NoIntrons_res1.3_dims40_dist0.3_neigh50_S3.rds")
 seu.obj <- loadMeta(seu.obj = seu.obj, metaFile = "./colorID_cie3v4.csv", groupBy = "clusterID_2_1", metaAdd = "majorID")
@@ -13,7 +17,6 @@ seu.obj$name <- factor(seu.obj$name, levels = sorted_labels)
 seu.obj <- loadMeta(seu.obj = seu.obj, metaFile = "./refColz.csv", groupBy = "name", metaAdd = "colz")
 seu.obj$cellSource <- factor(seu.obj$cellSource, levels = c("Healthy","CIE"))
 
-
 #subset on myeloid cells
 seu.obj.sub <- subset(seu.obj,
                   subset = 
@@ -22,7 +25,6 @@ seu.obj.sub <- subset(seu.obj,
 table(seu.obj.sub$majorID)
 table(seu.obj.sub$clusterID_2_1)
 table(seu.obj.sub$orig.ident)
-
 
 #complete independent reclustering
 seu.obj <- indReClus(seu.obj = seu.obj.sub, outDir = "./output/s2/", subName = "230829_myeloid_duod_h3c4_NoIntrons_2000", 
@@ -48,12 +50,10 @@ seu.obj.sub <- subset(seu.obj, invert = T,
 table(seu.obj.sub$clusterID_sub)
 table(seu.obj.sub$orig.ident)
 
-
 #complete independent reclustering
 seu.obj <- indReClus(seu.obj = seu.obj.sub, outDir = "./output/s2/", subName = "230829_myeloid_duod_h3c4_NoIntrons_2500", 
                      preSub = T, nfeatures = 2500, vars.to.regress = "percent.mt",  k = 25, ndims = 25, saveRDS = F
                        )
-
 
 # seu.obj <- readRDS(file = "./output/s2/230717_myeloid_duod_h3c3_NoIntrons_2500_S2.rds")
 clusTree(seu.obj = seu.obj, dout = "./output/clustree/", outName = "230829_myeloid_duod_h3c4_NoIntrons_2500", test_dims = c("40","35", "30"), algorithm = 3, prefix = "integrated_snn_res.")
@@ -66,7 +66,6 @@ seu.obj <- dataVisUMAP(seu.obj = seu.obj, outDir = "./output/s3/", outName = "23
                                     "IL7R", "ANPEP", "FLT3", "DLA-DRA", 
                                     "CD4", "MS4A1", "S100A12","MS4A2")
                        )
-
 
 ########################################### <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 #######   begin myeloid analysis   ######## <<<<<<<<<<<<<<
@@ -110,6 +109,8 @@ p <- prettyFeats(seu.obj = seu.obj, nrow = 1, ncol = 3, features = features,
 ggsave(paste("./output/", outName, "/",outName, "_QC_feats.png", sep = ""), width = 9, height = 3)
 
 
+### supp data - cell type gene signatures
+
 #generate violin plots for each cluster
 vilnPlots(seu.obj = seu.obj, groupBy = "clusterID_sub", numOfFeats = 24, outName = "230829_myeloid_duod_h3c4_NoIntrons_2500",
                      outDir = "./output/viln/myeloid/", outputGeneList = T, filterOutFeats = c("^MT-", "^RPL", "^ENSCAF", "^RPS")
@@ -119,7 +120,13 @@ vilnPlots(seu.obj = seu.obj, groupBy = "majorID_sub", numOfFeats = 24, outName =
                      outDir = "./output/viln/myeloid/", outputGeneList = T, filterOutFeats = c("^MT-", "^RPL", "^ENSCAF", "^RPS")
                     )
 
-#export data for cell browser
+surface.markers <- read.csv("./surface_master.csv")[ ,c("UniProt.gene", "UniProt.description", "Surfaceome.Label", "Surfaceome.Label.Source")] %>% filter(!duplicated(UniProt.gene))
+cluster.markers <- read.csv("./output/viln/myeloid/231022_myeloid_duod_h3c4_NoIntrons_2500_gene_list.csv")
+write.csv(cluster.markers[ ,c(7,8,2:6)] %>% left_join(surface.markers, by = c("gene" = "UniProt.gene")),
+          file = "./output/supplementalData/myeloid_markers.csv", row.names = F)
+
+
+### supp data -  export data for cell browser
 ExportToCB_cus(seu.obj = seu.obj, dataset.name = "myeloid", outDir = "./output/cb_input/", 
                markers = "./output/viln/myeloid/231022_myeloid_duod_h3c4_NoIntrons_2500_gene_list.csv", 
                reduction = "umap",  colsTOkeep = c("orig.ident", "nCount_RNA", "nFeature_RNA", "percent.mt", "Phase", "majorID", "clusterID_sub", "name2", "majorID_sub", "cellSource", "clusterID_final"), skipEXPR = F,
@@ -241,6 +248,7 @@ ggsave(paste("./output/", outName, "/", outName, "_supp3c.png", sep = ""), width
 
 ### Fig supp: reference map using Gut Atlas data
 seu.gut.myeloid <- MuDataSeurat::ReadH5AD("/pl/active/dow_lab/dylan/k9_duod_scRNA/analysis/myeloid_log_counts02_v2.h5ad")
+#download reference from https://www.gutcellatlas.org/#datasets
 reference <- seu.gut.myeloid
 
 #prep the reference
@@ -277,6 +285,7 @@ ggsave(paste("./output/", outName, "/",outName, "_umap_Predicted_gutAtlas.png", 
 
 ### Fig supp: reference map using canine PBMC Atlas data
 reference <- readRDS(file = "../../k9_PBMC_scRNA/analysis/output/s3/final_dataSet_HvO.rds")
+#download reference with utils::download.file("https://ftp.ncbi.nlm.nih.gov/geo/series/GSE225nnn/GSE225599/suppl/GSE225599_final_dataSet_HvO.rds.gz", dest = "/pwd/to/dir/final_dataSet_HvO.rds.gz")
 reference[['integrated']] <- as(object = reference[['integrated']] , Class = "SCTAssay")
 DefaultAssay(reference) <- "integrated"
 
@@ -339,6 +348,7 @@ p <- pseudoDEG(metaPWD = paste0("./output/", outName,"/pseudoBulk/allCells_deg_m
           minimalOuts = F, saveSigRes = T, filterTerm = "^ENSCAF", addLabs = NULL, mkDir = T
                      )
 
+
 ### Fig 3d - deg scatter plot
 seu.obj$allCells <- "DGE analysis of myeloid cells"
 seu.obj$allCells <- as.factor(seu.obj$allCells)
@@ -386,6 +396,7 @@ p <- FeaturePlot(seu.obj.sub,features = features, pt.size = 0.1, split.by = "cel
                                                                                    limits = c(NA, NA), low = "lightgrey", 
                                                                                    high = "darkblue")
 ggsave(paste("./output/", outName, "/",outName, "_fig3d.png", sep = ""), width = 6, height = 3)
+
 
 ########################################### <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 #######   emd myeloid analysis   ######## <<<<<<<<<<<<<<
