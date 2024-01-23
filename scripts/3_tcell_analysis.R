@@ -76,6 +76,33 @@ seu.obj <- dataVisUMAP(seu.obj = seu.obj, outDir = "./output/s3/", outName = "23
                                      "CD4", "MS4A1", "PPBP","HBM")
                        )
 
+
+#remove susspected low quality cluster
+seu.obj.sub <- subset(seu.obj, invert = T,
+                  subset = 
+                  clusterID_sub ==  "13")
+
+table(seu.obj.sub$clusterID_sub)
+table(seu.obj.sub$clusterID_2_1)
+table(seu.obj.sub$orig.ident)
+
+#complete independent reclustering
+seu.obj <- indReClus(seu.obj = seu.obj.sub, outDir = "./output/s2/", subName = "240112_tcell_noILC_duod_h3c4_NoIntrons_2500", 
+                     preSub = T, nfeatures = 2500, vars.to.regress = "percent.mt", saveRDS = F
+                    )
+
+#clustree to determine clus resolution
+# seu.obj <- readRDS(file = "./output/s2/230913_tcell_duod_h3c4_NoIntrons_2500_S2.rds")
+clusTree(seu.obj = seu.obj, dout = "./output/clustree/", outName = "240112_tcell_noILC_duod_h3c4_NoIntrons_2500", test_dims = c("40","35", "30"), algorithm = 3, prefix = "integrated_snn_res.")
+
+#visulize the data & evaluate
+seu.obj <- dataVisUMAP(seu.obj = seu.obj, outDir = "./output/s3/", outName = "240112_tcell_noILC_duod_h3c4_NoIntrons_2500", final.dims = 35, final.res = 0.6, stashID = "clusterID_sub", 
+                        algorithm = 3, prefix = "integrated_snn_res.", min.dist = 0.3, n.neighbors = 30, assay = "integrated", saveRDS = T,
+                        features = c("PTPRC", "CD3E", "CD8A", "GZMA", 
+                                     "IL7R", "ANPEP", "FLT3", "DLA-DRA", 
+                                     "CD4", "MS4A1", "PPBP","HBM")
+                       )
+
 ########################################### <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 #######   begin T cell analysis   ######## <<<<<<<<<<<<<<
 ########################################### <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
@@ -88,19 +115,34 @@ outName <- "tcell"
 
 #stash new cell idents
 Idents(seu.obj) <- "clusterID_sub"
-seu.obj <- RenameIdents(seu.obj, c("0" = "Trm (c0)", "1" = "Trm (c0)", 
-                                   "2" = "Tinf (c1)", "3" = "Trm (c0)",
-                                   "4" = "gdT_1 (c2)", "5" = "Tinf (c1)",
-                                   "6" = "NK_T (c3)", "7" = "Tinf (c1)",
-                                   "8" = "CD8mem (c4)", "9" = "gdT_2 (c5)",
-                                   "10" = "Trm (c0)", "11" = "Treg (c6)",
-                                   "12" = "Trm (c0)", "13" = "ILC2 (c7)",
+seu.obj <- RenameIdents(seu.obj, c("0" = "CD8_TRM (c0)", "1" = "CD8_TRM (c0)", 
+                                   "2" = "IL7R+_T (c1)", "3" = "CD8_TRM (c0)",
+                                   "4" = "gdT_1 (c2)", "5" = "IL7R+_T (c1)",
+                                   "6" = "NK_T (c3)", "7" = "IL7R+_T (c1)",
+                                   "8" = "GZMK+_CD8 (c4)", "9" = "gdT_2 (c5)",
+                                   "10" = "CD8_TRM (c0)", "11" = "Treg (c6)",
+                                   "12" = "CD8_TRM (c0)", "13" = "ILC2 (c7)",
                                    "14" = "NK (c8)","15" = "T_IFN (c9)")
                        )
 
 
 seu.obj$majorID_sub <- Idents(seu.obj)
 seu.obj$majorID_sub <- factor(seu.obj$majorID_sub, levels = levels(seu.obj$majorID_sub)[c(1,3,6,5,4,2,8,7,9,10)])
+
+Idents(seu.obj) <- "clusterID_sub"
+seu.obj <- RenameIdents(seu.obj, c("0" = "Tissue resident", "1" = "Tissue resident", 
+                                   "2" = "Non-resident", "3" = "Memory",
+                                   "4" = "Tissue resident", "5" = "Non-resident",
+                                   "6" = "Non-resident", "7" = "Non-resident",
+                                   "8" = "Memory", "9" = "Tissue resident",
+                                   "10" = "Tissue resident", "11" = "Non-resident",
+                                   "12" = "Tissue resident", "13" = "ILC2",
+                                   "14" = "Non-resident","15" = "Non-resident")
+                       )
+
+
+seu.obj$majorID_sub_big <- Idents(seu.obj)
+
 
 #stash the numerical ID
 clusterID_final <- table(seu.obj$majorID_sub) %>% as.data.frame() %>% arrange(desc(Freq)) %>%
@@ -112,6 +154,18 @@ Idents(seu.obj) <- "majorID_sub"
 seu.obj <- RenameIdents(seu.obj, newID)
 table(Idents(seu.obj))
 seu.obj$clusterID_final <- Idents(seu.obj)
+
+
+#stash the numerical ID
+clusterID_final <- table(seu.obj$majorID_sub_big) %>% as.data.frame() %>% arrange(desc(Freq)) %>%
+mutate(clusterID_final=row_number()-1) %>% arrange(clusterID_final) 
+
+newID <- clusterID_final$clusterID_final
+names(newID) <- clusterID_final$Var1
+Idents(seu.obj) <- "majorID_sub_big"
+seu.obj <- RenameIdents(seu.obj, newID)
+table(Idents(seu.obj))
+seu.obj$clusterID_final_big <- Idents(seu.obj)
 
 
 ### Fig extra - check QC params
@@ -152,7 +206,12 @@ vilnPlots(seu.obj = seu.obj, groupBy = "clusterID_sub", numOfFeats = 24, outName
 
 saveName <- "231022_tcell_duod_h3c4_NoIntrons_2500"
 vilnPlots(seu.obj = seu.obj, groupBy = "majorID_sub", numOfFeats = 24, outName = saveName,
-                     outDir = paste0("/output/viln/",outName,"/"), outputGeneList = T, filterOutFeats = c("^MT-", "^RPL", "^ENSCAF", "^RPS")
+                     outDir = paste0("./output/viln/",outName,"/"), outputGeneList = T, filterOutFeats = c("^MT-", "^RPL", "^ENSCAF", "^RPS")
+                    )
+
+saveName <- "240112_tcell_big_duod_h3c4_NoIntrons_2500"
+vilnPlots(seu.obj = seu.obj, groupBy = "majorID_sub_big", numOfFeats = 24, outName = saveName,
+                     outDir = paste0("./output/viln/",outName,"/"), outputGeneList = T, filterOutFeats = c("^MT-", "^RPL", "^RPS")
                     )
 
 #export surface marker data with FindAllMarkers
@@ -182,68 +241,696 @@ pi <- DimPlot(seu.obj,
         group.by = "clusterID_sub",
         pt.size = 0.25,
 #               cols = colz.df$V1,
-
         label = TRUE,
         label.box = TRUE
  )
-p <- cusLabels(plot = pi, shape = 21, size = 8, alpha = 0.8) + NoLegend() + theme(axis.title = element_blank(),
-                                                                                  panel.border = element_blank())
-
-axes <- ggplot() + labs(x = "UMAP1", y = "UMAP2") + 
-theme(axis.line = element_line(colour = "black", 
-                               arrow = arrow(angle = 30, length = unit(0.1, "inches"),
-                                             ends = "last", type = "closed"),
-                              ),
-      axis.title.y = element_text(colour = "black", size = 20),
-      axis.title.x = element_text(colour = "black", size = 20),
-      panel.border = element_blank(),
-      panel.background = element_rect(fill = "transparent",colour = NA),
-      plot.background = element_rect(fill = "transparent",colour = NA),
-      panel.grid.major = element_blank(), 
-      panel.grid.minor = element_blank()
-     )
-
-p <- p + inset_element(axes,left= 0,
-                       bottom = 0,
-                       right = 0.25,
-                       top = 0.25,
-                       align_to = "full")
+p <- cusLabels(plot = pi, shape = 21, size = 8, alpha = 0.8, smallAxes = T)
 ggsave(paste0("./output/", outName, "/", outName, "_supp2a.png"), width = 7, height = 7)
 
 
-### Fig 2a - tcell unsupervised clustering
+### Fig 2a - tcell colorized by annotation clustering
 pi <- DimPlot(seu.obj, 
               reduction = "umap", 
-              group.by = "clusterID_final",
+              group.by = "clusterID_final_big",
               pt.size = 0.25,
               cols = colz.df$V1,
+              label = F,
+              label.box = F
+             )
+p <- formatUMAP(plot = pi) + theme(axis.title = element_blank(),
+                             panel.border = element_blank(),
+                             plot.margin = unit(c(-7, -7, -7, -7), "pt")
+                            ) + NoLegend()
+
+ggsave(paste0("./output/", outName, "/", outName, "_fig2a.png"), width = 7, height = 7)
+
+
+### Fig 2b - dot plot of key t cell features
+features <- c("CD4", "IL7R", "GZMA","CCL4","IL17RB",
+              "CD8A", "TCF7","GZMB", "GZMK", "IL13")
+
+### Fig extra - plot on featPlots
+p <- prettyFeats(seu.obj = seu.obj, nrow = 2, ncol = 5, features = features, 
+                 color = "black", order = F, pt.size = 0.0000001, title.size = 12, noLegend = T)
+ggsave(paste("./output/", outName, "/",outName, "_tcell_featPlots.png", sep = ""), width = 12.5, height = 5)
+
+
+
+
+Idents(seu.obj) <- "clusterID_sub"
+seu.obj <- RenameIdents(seu.obj, c("0" = "Effector", "1" = "Effector", 
+                                   "2" = "Circulating", "3" = "Effector",
+                                   "4" = "Effector", "5" = "Circulating",
+                                   "6" = "Circulating", "7" = "Circulating",
+                                   "8" = "Circulating", "9" = "Effector",
+                                   "10" = "Effector", "11" = "Circulating",
+                                   "12" = "Effector", "13" = "ILC2",
+                                   "14" = "Circulating","15" = "Circulating")
+                       )
+
+seu.obj$majorID_sub_big2 <- Idents(seu.obj)
+
+
+seu.obj.sub <- subset(seu.obj, invert = T, subset = majorID_sub_big2 == "ILC2")
+seu.obj.sub$majorID_sub_big2 <- droplevels(seu.obj.sub$majorID_sub_big2)
+### Fig extra - Evlauate cell frequency by majorID_sub_big
+freqy <- freqPlots(seu.obj.sub, method = 1, nrow= 1, groupBy = "majorID_sub_big2", legTitle = "Cell source",refVal = "name2", showPval = F,
+                   namez = unique(seu.obj$name2), 
+                   colz = unique(seu.obj$colz)
+                  )
+
+freqy + ggpubr::stat_compare_means(method = "t.test",
+                                   method.args = list(var.equal = F),
+                                   aes(label = paste0("p = ", ..p.format..)), label.x.npc = "left", label.y.npc = 1,vjust = -1, size = 3)
+
+
+ggsave(paste("./output/", outName, "/",outName, "_freqPlots.png", sep = ""), width = 10, height = 5)
+
+
+
+### Look at Trm/Tnaive ratio
+groupByList <- seu.obj.sub$name2
+clusterList <- seu.obj.sub$majorID_sub_big2
+
+cluster_freq.table <- as.data.frame(table(groupByList, clusterList)) %>% melt()
+cluster_freq.table <- cluster_freq.table[,-3]
+colnames(cluster_freq.table) <- c("Sample", "ClusterID", "Count")
+cluster_freq.table <- cluster_freq.table %>% dplyr::group_by(Sample) %>% mutate(pct = round(prop.table(Count),2))
+
+ratio.df <- cluster_freq.table[ ,c(1:3)] %>% pivot_wider(names_from = "ClusterID", values_from = "Count") %>% mutate(trm_tinf_ratio = Effector/Circulating)
+
+ratio.df <- ratio.df[ ,c(1,4)] %>% mutate(cellSource = ifelse(grepl("CIE", Sample), "CIE", "Healthy"))
+t.test(trm_tinf_ratio ~ cellSource, ratio.df)
+ratio.df$cellSource <- factor(ratio.df$cellSource, levels = c("Healthy","CIE"))
+
+car::leveneTest(trm_tinf_ratio ~ cellSource, data = ratio.df)
+
+p <- ggplot(ratio.df, aes(y = trm_tinf_ratio, x = cellSource)) + 
+    labs(x = NULL, y = "Ratio (Tissue resident/Non-resident)") + 
+    theme_bw() + 
+    theme(panel.grid.minor = element_blank(),
+          panel.grid.major = element_blank(), 
+          strip.background = element_rect(fill = NA, color = NA), 
+          strip.text = element_text(face = "bold"), 
+          axis.ticks.x = element_blank(), 
+          axis.text = element_text(color = "black")         ) + 
+    guides(fill = "none") + 
+    geom_boxplot(aes(x = cellSource), alpha = 0.25, outlier.color = NA) + 
+    geom_point(size = 2, position = position_jitter(width = 0.25),
+               aes(x = cellSource, y = trm_tinf_ratio, color = Sample)) +
+    labs(color = "Cell Source") + 
+    ggpubr::stat_compare_means(method = "t.test", method.args = list(var.equal = F), aes(label = paste0("p = ", ..p.format..)), label.x.npc = "left", label.y.npc = 1, vjust = -1, size = 3) + 
+    scale_y_continuous(expand = expansion(mult = c(0.05, 0.2))) +
+    theme(panel.grid.major = element_line(color = "grey", size = 0.25),
+          #legend.position = "none",
+          text = element_text(size = 12) 
+          ) + scale_color_manual(labels = unique(seu.obj$name2), values = unique(seu.obj$colz)) + NoLegend()
+ggsave(paste("./output/", outName, "/", outName, "_RatioBoxplot.png", sep = ""), width = 2.5, height = 2.5)
+
+
+### Fig 1d - stacked bar graph by major cell types
+Idents(seu.obj) <- "cellSource"
+set.seed(12)
+seu.obj.ds <- subset(x = seu.obj, downsample = min(table(seu.obj@meta.data$cellSource)))
+# seu.obj.ds$majorID_pertyName <- factor(seu.obj.ds$majorID_pertyName, levels = rev(c("Epithelial","T cell","Myeloid","Plasma cell","B cell","Mast cell","Cycling T cell")))
+
+p <- stackedBar(seu.obj = seu.obj.ds, downSampleBy = "cellSource", groupBy = "name2", clusters = "majorID_sub_big2") +
+scale_fill_manual(labels = unique(seu.obj$name2), 
+                  values = unique(seu.obj$colz)) + theme(axis.title.y = element_blank(),
+                                                         axis.title.x = element_text(size = 14),
+                                                         axis.text = element_text(size = 12)
+                                                        ) 
+ggsave(paste("./output/", outName,"/", outName, "_fig1d.png", sep = ""), width =7, height = 4)
+
+
+### Fig extra - DEG between Trm and Tinf
+idents.1 = "Circulating"
+idents.2 = "Effector"
+groupBy = "majorID_sub_big2"
+p_volc <- btwnClusDEG(seu.obj = seu.obj, groupBy = groupBy, idents.1 = idents.1, idents.2 = idents.2, bioRep = "name2",padj_cutoff = 0.05, lfcCut = 0.58, 
+                      minCells = 25, outDir = paste0("./output/", outName, "/"), 
+                      title = paste0(idents.1,"_vs_",idents.2), idents.1_NAME = idents.1, idents.2_NAME = idents.2, 
+                      returnVolc = T, doLinDEG = F, paired = T, addLabs = NULL, lowFilter = T, dwnSam = F, setSeed = 24
+                    )
+
+p  <- prettyVolc(plot = p_volc[[1]], rightLab = paste0("Up in ",idents.1), leftLab = paste0("Up in ",idents.2), arrowz = T) + labs(x = paste0("log2(FC)", idents.1, " vs ",idents.2)) + NoLegend() + theme(panel.border = element_rect(color = "black",
+                                      fill = NA,
+                                      size = 2),
+                                      axis.line = element_blank())
+ggsave(paste("./output/", outName, "/", outName, "_", idents.1, "_V_", idents.2, ".png", sep = ""), width = 7, height = 7)
+
+
+
+
+### Fig 
+geneLists <- read.csv("./output/tcell/Circulating_vs_Effector_all_genes.csv")
+
+#extract top 20 feats for each direction of the conntrast
+geneListUp <- geneLists %>% arrange(padj) %>% filter(log2FoldChange > 0) %>% .$gene
+geneListDwn <- geneLists %>% arrange(padj) %>% filter(log2FoldChange < 0) %>% .$gene
+feats_forHeat <- c(head(geneListUp,20), head(geneListDwn,20))
+
+
+seu.obj.sub <- subset(seu.obj, majorID_sub_big2 == "Circulating" | majorID_sub_big2 == "Effector")
+seu.obj.sub$majorID_sub_big2 <- droplevels(seu.obj.sub$majorID_sub_big2)
+seu.obj.sub <- subset(x = seu.obj.sub, downsample = min(table(seu.obj.sub$majorID_sub_big2)))
+seu.obj.sub <- ScaleData(seu.obj.sub)
+p <- DoHeatmap(
+  seu.obj.sub,
+  features = feats_forHeat
+    )
+ggsave(paste("./output/", outName, "/", outName, "_Circulating_vs_Effector_heatMap.png", sep = ""), width = 7, height = 7)
+
+
+seu.obj.sub <- subset(seu.obj, majorID_sub_big2 == "Circulating" | majorID_sub_big2 == "Effector")
+seu.obj.sub$type <- paste0(seu.obj.sub$majorID_sub_big2,"-",seu.obj.sub$name2)
+
+#extract metadata and data
+metadata <- seu.obj.sub@meta.data
+expression <- as.data.frame(t(seu.obj.sub@assays$RNA@data)) #use log noralized count
+expression$anno_merge <- seu.obj.sub@meta.data[rownames(expression),]$type
+
+#get cell type expression averages - do clus avg expression by sample
+clusAvg_expression <- expression %>% group_by(anno_merge) %>% summarise(across(where(is.numeric), mean)) %>% as.data.frame()
+rownames(clusAvg_expression) <- clusAvg_expression$anno_merge
+clusAvg_expression$anno_merge <- NULL     
+
+mat <- scale(as.matrix(clusAvg_expression))
+mat <- mat[,feats_forHeat]
+      
+samp <- unique(seu.obj$colz)
+names(samp) <- unique(seu.obj$name2)
+
+ha = HeatmapAnnotation(
+    Sample = unlist(lapply(rownames(mat), function(x){strsplit(x,"-")[[1]][2]})),
+    border = TRUE,
+    col = list(Sample = samp)
+)
+
+
+#plot the data
+png(file = paste0("./output/", outName, "/", outName, "_tcellHeat.png"), width=3000, height=4000, res=400)
+par(mfcol=c(1,1))         
+ht <- Heatmap(t(mat), #name = "mat", #col = col_fun,
+              name = "Scaled expression",
+              cluster_rows = F,
+              show_row_names=T,
+              show_column_names=F,
+              top_annotation = ha,
+              col=viridis(option = "magma",100),
+              cluster_columns = T,
+#               heatmap_legend_param = list(legend_direction = "horizontal", title_position = "topleft",  title_gp = gpar(fontsize = 16), 
+#                                           labels_gp = gpar(fontsize = 8), legend_width = unit(6, "cm")),
+             )
+draw(ht, padding = unit(c(2, 12, 2, 5), "mm"),heatmap_legend_side = "top")
+dev.off()
+
+
+
+### Fig extra - DEG between Trm and Tinf
+idents.1 = "Memory"
+idents.2 = "Circulating_Effector"
+groupBy = "majorID_sub_big"
+p_volc <- btwnClusDEG(seu.obj = seu.obj, groupBy = groupBy, idents.1 = idents.1, idents.2 = c("Non-resident", "Tissue resident"), bioRep = "name2",padj_cutoff = 0.05, lfcCut = 0.58, 
+                      minCells = 25, outDir = paste0("./output/", outName, "/"), 
+                      title = paste0(idents.1,"_vs_",idents.2), idents.1_NAME = idents.1, idents.2_NAME = idents.2, 
+                      returnVolc = T, doLinDEG = F, paired = T, addLabs = NULL, lowFilter = T, dwnSam = F, setSeed = 24
+                    )
+
+p  <- prettyVolc(plot = p_volc[[1]], rightLab = paste0("Up in ",idents.1), leftLab = paste0("Up in ",idents.2), arrowz = T) + labs(x = paste0("log2(FC)", idents.1, " vs ",idents.2)) + NoLegend() + theme(panel.border = element_rect(color = "black",
+                                      fill = NA,
+                                      size = 2),
+                                      axis.line = element_blank())
+ggsave(paste("./output/", outName, "/", outName, "_", idents.1, "_V_", idents.2, ".png", sep = ""), width = 7, height = 7)
+
+
+
+
+
+
+
+### Fig extra - check QC params
+features <- c("nCount_RNA", "nFeature_RNA", "percent.mt")
+p <- prettyFeats(seu.obj = seu.obj, nrow = 1, ncol = 3, features = features, 
+                 color = "black", order = F, pt.size = 0.0000001, title.size = 18)
+ggsave(paste("./output/", outName,"/",outName, "_QC_feats.png", sep = ""), width = 9, height = 3)
+
+
+
+
+################################3
+
+#remove ILC2s and recluster
+seu.obj.sub <- subset(seu.obj, invert = T,
+                  subset = 
+                  clusterID_sub ==  "13")
+
+table(seu.obj.sub$clusterID_sub)
+table(seu.obj.sub$clusterID_2_1)
+table(seu.obj.sub$orig.ident)
+
+rm(seu.obj)
+gc()
+
+#complete independent reclustering
+seu.obj <- indReClus(seu.obj = seu.obj.sub, outDir = "./output/s2/", subName = "240112_tcell_noILC_duod_h3c4_NoIntrons_2500", 
+                     preSub = T, nfeatures = 2500, vars.to.regress = "percent.mt", saveRDS = F
+                    )
+
+#clustree to determine clus resolution
+# seu.obj <- readRDS(file = "./output/s2/230913_tcell_duod_h3c4_NoIntrons_2500_S2.rds")
+clusTree(seu.obj = seu.obj, dout = "./output/clustree/", outName = "240112_tcell_noILC_duod_h3c4_NoIntrons_2500", test_dims = c("40","35", "30"), algorithm = 3, prefix = "integrated_snn_res.")
+
+#visulize the data & evaluate
+seu.obj <- dataVisUMAP(seu.obj = seu.obj, outDir = "./output/s3/", outName = "240112_tcell_noILC_duod_h3c4_NoIntrons_2500", final.dims = 35, final.res = 0.6, stashID = "clusterID_sub", 
+                        algorithm = 3, prefix = "integrated_snn_res.", min.dist = 0.3, n.neighbors = 30, assay = "integrated", saveRDS = T,
+                        features = c("PTPRC", "CD3E", "CD8A", "GZMA", 
+                                     "IL7R", "ANPEP", "FLT3", "DLA-DRA", 
+                                     "CD4", "MS4A1", "PPBP","HBM")
+                       )
+
+#test out 0.2 res --0.4 might be the way
+seu.obj <- dataVisUMAP(seu.obj = seu.obj, outDir = "./output/s3/", outName = "240112_tcell_noILC_duod_h3c4_NoIntrons_2500", final.dims = 30, final.res = 0.6, stashID = "clusterID_sub", 
+                        algorithm = 3, prefix = "integrated_snn_res.", min.dist = 0.1, n.neighbors = 10, assay = "integrated", saveRDS = T,
+                        features = c("PTPRC", "CD3E", "CD8A", "GZMA", 
+                                     "IL7R", "ANPEP", "FLT3", "DLA-DRA", 
+                                     "CD4", "MS4A1", "PPBP","HBM")
+                       )
+
+
+
+
+
+
+#load in the obj
+
+#note - clus 10 might be junk?? -- def not junk; it just expresses one unique feature that is impacting clustering, but does not appear to be artifact
+seu.obj <- readRDS("./output/s3/240112_tcell_noILC_duod_h3c4_NoIntrons_2500_res0.6_dims30_dist0.1_neigh10_S3.rds")
+colz <- c("#A41DDC", "#C47AEA", "#DAACF2", "#75149D", "#FF007F", "#F77FBE", "#FF1E6D", "#9B1664", "#FF007F", "#F77FBE")
+
+#clusterID_sub 10 is artifactually split across the UMAP space. Use UMAP coordinats to split out cluster
+
+#extract the barcodes of cells below -2.5 on the y-axis of the UMAP
+lowerC10 <- seu.obj@reductions$umap@cell.embeddings %>% as.data.frame() %>% filter(rownames(.) %in% WhichCells(seu.obj, idents = "10"), UMAP_2 < -2.5)
+seu.obj$clusterID_sub <- as.factor(ifelse(seu.obj$clusterID_sub == "10",
+                                          ifelse(names(seu.obj$clusterID_sub) %in% rownames(lowerC10), "10.2", "10.1"), as.character(seu.obj$clusterID_sub)
+                                         )
+                                  )
+table(seu.obj$clusterID_sub)
+
+#stash new cell idents
+Idents(seu.obj) <- "clusterID_sub"
+seu.obj <- RenameIdents(seu.obj, c("0" = "CD8_TRM (c0)", "1" = "CD8_TRM (c0)", 
+                                   "2" = "IL7R+_T (c1)", "3" = "CD8_TRM_CCL4+ (c2)",
+                                   "4" = "gdT_1 (c3)", "5" = "IL7R+_T (c1)",
+                                   "6" = "NK_T (c4)", "7" = "IL7R+_T (c1)",
+                                   "8" = "CD8_GZMK+ (c5)", "9" = "gdT_2 (c6)",
+                                   "10.1" = "IL7R+_T (c1)", "10.2" = "CD8_TRM (c0)",
+                                   "11" = "CD8_TRM (c0)", "12" = "Treg (c7)",
+                                   "13" = "NK (c8)","14" = "T_IFN (c9)")
+                       )
+seu.obj$majorID_sub_noILC <- Idents(seu.obj)
+seu.obj$majorID_sub_noILC <- factor(seu.obj$majorID_sub_noILC, levels = levels(seu.obj$majorID_sub_noILC)[c(4,7,1,3,6,2,8,10,5,9)])
+
+
+#stash the numerical ID
+clusterID_final <- table(seu.obj$majorID_sub_noILC) %>% as.data.frame() %>% arrange(desc(Freq)) %>%
+mutate(clusterID_final=row_number()-1) %>% arrange(clusterID_final) 
+
+newID <- clusterID_final$clusterID_final
+names(newID) <- clusterID_final$Var1
+Idents(seu.obj) <- "majorID_sub_noILC"
+seu.obj <- RenameIdents(seu.obj, newID)
+table(Idents(seu.obj))
+seu.obj$clusterID_final_noILC <- Idents(seu.obj)
+table(seu.obj$majorID_sub_noILC, seu.obj$clusterID_final_noILC)
+
+### Fig 
+pi <- DimPlot(seu.obj, 
+              reduction = "umap", 
+              group.by = "clusterID",
+              pt.size = 0.25,
+#               cols = colz.df$V1,
               label = T,
               label.box = T
              )
-p <- cusLabels(plot = pi, shape = 21, size = 10, textSize = 6, alpha = 0.8, labCol = c(rep("black",5),"white","black","white","white","white")) + NoLegend() + theme(axis.title = element_blank(),
-      panel.border = element_blank())
-
-
-axes <- ggplot() + labs(x = "UMAP1", y = "UMAP2") + 
-theme(axis.line = element_line(colour = "black", 
-                               arrow = arrow(angle = 30, length = unit(0.1, "inches"),
-                                             ends = "last", type = "closed"),
-                              ),
-      axis.title.y = element_text(colour = "black", size = 20),
-      axis.title.x = element_text(colour = "black", size = 20),
-      panel.border = element_blank(),
-      panel.background = element_rect(fill = "transparent",colour = NA),
-      plot.background = element_rect(fill = "transparent",colour = NA),
-      panel.grid.major = element_blank(), 
-      panel.grid.minor = element_blank()
-     )
-
-p <- p + inset_element(axes,left= 0,
-                       bottom = 0,
-                       right = 0.25,
-                       top = 0.25,
-                       align_to = "full")
+p <- cusLabels(plot = pi, shape = 21, size = 10, textSize = 6, alpha = 0.8, labCol = "black", smallAxes = T)
 ggsave(paste0("./output/", outName, "/", outName, "_fig2a.png"), width = 7, height = 7)
+
+
+### Fig 2a - tcell colorized by annotation clustering
+
+pi <- DimPlot(seu.obj, 
+              reduction = "umap", 
+              group.by = "majorID_sub_noILC",
+              pt.size = 0.25,
+              cols = colz,
+              label = T,
+              label.box = T,
+              repel = T
+             )
+p <- formatUMAP(plot = pi, smallAxes = T)
+ggsave(paste0("./output/", outName, "/", outName, "_fig2d.png"), width = 7, height = 7)
+
+
+### Fig 2a - tcell colorized by annotation clustering
+pi <- DimPlot(seu.obj, 
+              reduction = "umap", 
+              group.by = "clusterID_sub",
+              pt.size = 0.25,
+#               cols = colz.df$V1,
+              label = T,
+              label.box = T
+             )
+p <- cusLabels(plot = pi, shape = 21, size = 10, textSize = 6, alpha = 0.8, labCol = "black", smallAxes = T)
+ggsave(paste0("./output/", outName, "/", outName, "_fig2a.png"), width = 7, height = 7)
+
+
+# saveName <- "240112_tcell_noILC_h3c4_NoIntrons_2500"
+# vilnPlots(seu.obj = seu.obj, groupBy = "clusterID_sub", numOfFeats = 24, outName = saveName,
+#                      outDir = paste0("./output/viln/",outName,"/"), outputGeneList = T, filterOutFeats = c("^MT-", "^RPL", "^RPS")
+#                     )
+
+saveName <- "240118_tcell_noILC_h3c4_NoIntrons_2500"
+vilnPlots(seu.obj = seu.obj, groupBy = "majorID_sub_noILC", numOfFeats = 24, outName = saveName,
+                     outDir = paste0("./output/viln/",outName,"/"), outputGeneList = T, filterOutFeats = c("^MT-", "^RPL", "^RPS")
+                    )
+
+colz.df <- read.csv("./cellColz.csv", header = F)
+colz <- colz.df[colz.df$V2 == "tcell", ]
+
+p <- sankeyPlot(seu_obj = seu.obj, new.ident = "clusterID_final_noILC", old.ident = "majorID_sub_big", old.colorz = gg_color_hue(3),
+                       new.colorz =  gg_color_hue(14), old.labCol = "black", new.labCol = "black", flowCol = "grey"
+                    )
+data <- p$data %>% as.data.frame()
+ #make the plot
+data$node <- factor(data$node,levels = c("Tissue resident", "Memory", "Non-resident", "c0", "c3", "c6", "c2", "c5", "c1", "c7", "c4", "c8", "c9"))
+data$next_node <- factor(data$next_node,levels = c("c0", "c3", "c6", "c2", "c5", "c1", "c7", "c4", "c8", "c9"))
+
+p <- ggplot(data, aes(x = x,
+                      next_x = next_x,
+                      node = node,
+                      next_node = next_node,
+                      fill = factor(node),
+                      label = node)) + 
+geom_sankey() +
+geom_sankey(flow.alpha = 0.5, node.color = 1) + 
+geom_sankey_label(size = 3, color = "white", fill = "gray40") +
+theme_sankey(base_size = 16) +
+scale_fill_manual(values = colz$V1[1:13]) +
+theme(legend.position = "none",
+      axis.title.x = element_blank(),
+      axis.text.x = element_blank(),
+      panel.border = element_blank(),
+      plot.margin = margin(t = 7, r = 7, b = 7, l = 28, unit = "pt")) + scale_x_discrete(expand = c(0, 0)) + coord_cartesian(clip = "off")
+
+
+ggsave(paste0("./output/", outName, "/", outName, "_fig2a.png"), width = 3, height = 7)
+
+
+### Fig 2b - dot plot of key t cell features
+features <- c("ENSCAFG00000041010","ENSCAFG00000011098","ENSCAFG00000030206",
+              "GZMA","GZMB",
+              "CCL4","GZMK",
+              "IL7R","VIM",
+              "CTLA4","FOXP3","TNFRSF4","TNFRSF18",
+              "IFI44","OAS1","ISG15",
+              "TCF7","CRTAM","CXCR4","NCR3","F2RL3","KLRB1","IL12RB2")
+
+pi <- majorDot(seu.obj = seu.obj, groupBy = "majorID_sub_noILC",
+               features = features
+              ) + theme(axis.title = element_blank(),
+                        axis.text = element_text(size = 12)) #+ geom_tile(aes(fill = c(1,1,1,2,2,2,2,2,2,3), x = 0), size = 1, show.legend = FALSE)
+ggsave(paste("./output/", outName, "/", outName, "_fig2f.png", sep = ""), width =9, height = 5)
+
+
+
+### Fig extra - DEG between mem pops
+idents.1 = "7"
+idents.2 = "3"
+p_volc <- btwnClusDEG(seu.obj = seu.obj, groupBy = "clusterID_sub", idents.1 = idents.1, idents.2 = idents.2, bioRep = "name2",padj_cutoff = 0.05, lfcCut = 0.58, 
+                      minCells = 25, outDir = paste0("./output/", outName, "/"), 
+                      title = paste0(idents.1,"_vs_",idents.2), idents.1_NAME = idents.1, idents.2_NAME = idents.2, 
+                      returnVolc = T, doLinDEG = F, paired = T, addLabs = NULL, lowFilter = T, dwnSam = F, setSeed = 24
+                    )
+
+p  <- prettyVolc(plot = p_volc[[1]], rightLab = paste0("Up in ",idents.1), leftLab = paste0("Up in ",idents.2), arrowz = T) + labs(x = paste0("log2(FC)", idents.1, " vs ",idents.2)) + NoLegend() + theme(panel.border = element_rect(color = "black",
+                                      fill = NA,
+                                      size = 2),
+                                      axis.line = element_blank())
+ggsave(paste("./output/", outName, "/", outName, "_", idents.1, "_V_", idents.2, ".png", sep = ""), width = 7, height = 7)
+
+subcategory = "CP:REACTOME",
+
+### Fig 2e: gsea of the DGE results
+p <- plotGSEA(pwdTOgeneList = "./output/tcell/Circulating_vs_Effector_all_genes.csv", category = "C5", 
+              upCol = "blue", dwnCol = "red", size = 4.5) 
+
+# minVal <- -12
+# maxVal <- 8
+
+# pi <- p + scale_x_continuous(limits = c(minVal, maxVal), name = "Signed log10(padj)") + 
+#     theme(axis.title=element_text(size = 16)) + 
+
+#     annotate("segment", x = -0.1, 
+#              y = 17, 
+#              xend = minVal, 
+#              yend = 17, 
+#              lineend = "round", linejoin = "bevel", linetype ="solid", colour = "blue",
+#              size = 1, arrow = arrow(length = unit(0.1, "inches"))
+#             ) + 
+
+#     annotate(geom = "text", x = (minVal-0.1*1.5)/2-0.1*1.5, 
+#              y = 18,
+#              label = "Up in IL7R+_T (c1)",
+#              hjust = 0.5,
+#              vjust = 1.5,
+#              size = 5) +
+
+#     annotate("segment", x = 0.1, 
+#              y = 17, 
+#              xend = maxVal,
+#              yend = 17,
+#              lineend = "round", linejoin = "bevel", linetype ="solid", colour = "red",
+#              size = 1, arrow = arrow(length = unit(0.1, "inches"))
+#             ) + 
+
+#     annotate(geom = "text", x = (maxVal-0.1*1.5)/2+0.1*1.5, 
+#              y = 18,
+#              label = "Up in CD8_TRM (c0)",
+#              hjust = 0.5,
+#              vjust = 1.5,
+#              size = 5)
+
+
+ggsave(paste("./output/", outName, "/", outName, "_fig2e.png", sep = ""), width = 10, height = 7)
+
+
+
+
+
+### Fig - Evlauate cell frequency by majorID_sub
+freqy <- freqPlots(seu.obj, method = 1, nrow = 2, groupBy = "majorID_sub_noILC", legTitle = "Cell source",refVal = "name2", showPval = T,
+                   namez = unique(seu.obj$name2), 
+                   colz = unique(seu.obj$colz)
+                  ) + theme(axis.text.x = element_text(angle = 45, hjust = 1)) + NoLegend()
+
+ggsave(paste("./output/", outName, "/",outName, "_fig2c.png", sep = ""), width = 12, height = 6)
+
+#confirm variability is consistent between CIE and H
+res.ftest <- lapply(levels(freqy$data$majorID_sub), function (x){
+    data.df <- freqy$data[freqy$data$majorID_sub ==  x, ]
+    car::leveneTest(freq ~ cellSource, data = data.df)
+})
+
+
+
+#memory CD8 from azimuth
+# c("CCL5", "GZMH", "CD8A", "TRAC", "KLRD1", "NKG7", "GZMK", "CST7", "CD8B", "TRGC2")
+
+
+
+
+#try to recreate a heatmap
+seu.obj$majorID_sub_noILC <- factor(seu.obj$majorID_sub_noILC, levels = levels(seu.obj$majorID_sub_noILC)[c(1:5,8,6,7,9,10)])
+colz <- c("#A41DDC", "#C47AEA", "#DAACF2", "#75149D", "#FF007F", "#F77FBE", "#FF1E6D", "#9B1664", "#FF007F", "#F77FBE")[c(1:5,8,6,7,9,10)]
+seu.obj$type <- paste0(seu.obj$majorID_sub_noILC,"-",seu.obj$name2)
+keep <- names(table(seu.obj$type))[table(seu.obj$type) >= 5]
+Idents(seu.obj) <- "type"
+seu.obj <- subset(seu.obj, idents = keep)
+
+#calc the proportion of cells cd4 or cd8 positive
+exp.df <- FetchData(object = seu.obj, vars = c('cellSource', 'type','name2', 'majorID_sub_noILC', 'CD4','CD8A'))
+exp.df <- exp.df %>% group_by(name2,majorID_sub_noILC) %>% mutate(cd4_pos = ifelse(CD4 > 0 & CD8A == 0, 1, 0),
+                                     cd8a_pos = ifelse(CD8A > 0 & CD4 == 0, 1, 0),
+                                     total_cellz = n()
+                                    ) %>% summarize(CD4 = sum(cd4_pos)/total_cellz,
+                                                    CD8A = sum(cd8a_pos)/total_cellz) %>% distinct() %>% mutate(paste0(majorID_sub_noILC,"-",name2)) %>% as.data.frame()
+exp.df$majorID_sub_noILC <- factor(exp.df$majorID_sub_noILC, levels = levels(seu.obj$majorID_sub_noILC))
+exp.df$odor <- as.numeric(exp.df$majorID_sub_noILC)
+exp.df <- exp.df %>% arrange(odor)
+
+#extract metadata and data
+metadata <- seu.obj@meta.data
+expression <- as.data.frame(t(seu.obj@assays$RNA@data)) #use log noralized count
+expression$anno_merge <- seu.obj@meta.data[rownames(expression),]$type
+
+#get cell type expression averages - do clus avg expression by sample
+clusAvg_expression <- expression %>% group_by(anno_merge) %>% summarise(across(where(is.numeric), mean)) %>% as.data.frame()
+rownames(clusAvg_expression) <- clusAvg_expression$anno_merge
+clusAvg_expression$anno_merge <- NULL     
+
+
+df <- rownames(clusAvg_expression) %>% as.data.frame()
+colnames(df) <- "type"
+df$clus <- unlist(lapply(df$type, function(x){strsplit(x,"-")[[1]][1]}))
+df$clus <- factor(df$clus, levels = levels(seu.obj$majorID_sub_noILC))
+df$odor <- as.numeric(df$clus)
+df <- df %>% arrange(odor)
+
+#load in feats that define
+sig.df <- read.csv("/pl/active/dow_lab/dylan/k9_duod_scRNA/analysis/output/viln/tcell/240118_tcell_noILC_h3c4_NoIntrons_2500_gene_list.csv")
+sig.df <- sig.df %>% filter(p_val_adj < 0.01)
+sig.df$cluster <- factor(sig.df$cluster, levels = levels(seu.obj$majorID_sub_noILC))
+sig.df$odor <- as.numeric(sig.df$cluster)
+text_list <- rev(split(sig.df$gene, sig.df$cluster))
+text_list <- lapply(text_list, function(x){x[1:3]})
+text_list$`gdT_2 (c6)` <- text_list$`gdT_2 (c6)`[1]
+sig.df <- sig.df[!duplicated(sig.df[,"gene"]), ]
+sig.df <- sig.df %>% arrange(odor)
+
+#order the rows
+geneOrder <- rev(sig.df$gene)
+
+#filter matrix for feats that define and scale by row
+clusAvg_expression <- clusAvg_expression[ ,colnames(clusAvg_expression) %in% sig.df$gene]
+mat_scaled <- t(apply(t(clusAvg_expression), 1, scale))
+# mat_scaled <- FastRowScale(t(as.matrix(clusAvg_expression)), center = TRUE, scale = TRUE, scale_max = 5)
+
+colnames(mat_scaled) <- rownames(clusAvg_expression)
+
+length(geneOrder) == nrow(mat_scaled)
+mat_scaled <- mat_scaled[ ,match(df$type, colnames(mat_scaled))]
+mat_scaled <- mat_scaled[match(geneOrder, rownames(mat_scaled)), ]        
+
+# colnames(mat_scaled)
+# [c(39:44,15:21,34:38,8:14,1:7)]
+
+samp <- unique(seu.obj$colz)
+names(samp) <- unique(seu.obj$name2)
+
+clus <- colz
+names(clus) <- levels(seu.obj$majorID_sub_noILC)
+
+ha <- HeatmapAnnotation(
+    Sample = unlist(lapply(colnames(mat_scaled), function(x){strsplit(x,"-")[[1]][2]})),
+    Cluster = unlist(lapply(colnames(mat_scaled), function(x){strsplit(x,"-")[[1]][1]})),
+    CD4 = exp.df$CD4,
+    CD8 = exp.df$CD8,
+    border = TRUE,
+    col = list(Sample = samp, Cluster = clus),
+    show_legend = c(TRUE, FALSE, TRUE, TRUE),
+    annotation_legend_param = list(
+        CD4 = list(
+            title = "Proportion CD4+",
+            direction = "horizontal"
+        ),
+        CD8 = list(
+            title = "Proportion CD8+",
+            direction = "horizontal",
+            column_gap = unit(5, "cm")
+        ),
+        Sample = list(
+            nrow = 1
+        ),
+        Cluster = list(
+            nrow = 2
+        )
+    )
+)
+
+lgd1 = Legend(labels = sig.df[!duplicated(sig.df[,"cluster"]), ]$cluster, legend_gp = gpar(fill = clus), title = "Clusters", 
+    nrow = 2, gap = unit(3, "cm"))
+ra <- rowAnnotation(foo = anno_empty(border = FALSE, width = max_text_width(unlist(text_list)) + unit(4, "mm")))
+
+#plot the data
+ht <- Heatmap(
+    mat_scaled, #name = "mat", #col = col_fun,
+    name = "mat",
+    cluster_rows = F,
+#   row_title = "Genes",
+    row_title_gp = gpar(fontsize = 24),
+    show_row_names=F,
+    col=viridis(option = "magma",100),
+    cluster_columns = F,
+    top_annotation = ha,
+    right_annotation = ra,
+    show_column_names = F,
+    column_split = df$clus,
+    row_split = factor(rev(sig.df$cluster), levels = rev(sig.df[!duplicated(sig.df[,"cluster"]), ]$cluster)),
+#   row_km = length(rev(sig.df[!duplicated(sig.df[,"cluster"]), ]$cluster)),
+    cluster_row_slices=F,
+    row_title = NULL,
+    column_title = NULL,
+    heatmap_legend_param = list(
+            title = "Scaled expression",
+            direction = "horizontal"
+        )
+#   column_title = "Cell types",
+#   column_title_gp = gpar(fontsize = 24),
+#   column_title_side = "bottom",
+#   column_names_rot = 45,
+)
+
+png(file = paste0("./output/", outName, "/", outName, "_tcellHeat.png"), width=3000, height=4000, res=400)
+par(mfcol=c(1,1))    
+# draw(ht, padding = unit(c(2, 12, 2, 5), "mm"), heatmap_legend_side = "top")
+draw(ht, padding = unit(c(2, 2, 2, 2), "mm"), annotation_legend_list = lgd1, merge_legend = TRUE, heatmap_legend_side = "top", 
+    annotation_legend_side = "top")
+
+for(i in 1:length(rev(sig.df[!duplicated(sig.df[,"cluster"]), ]$cluster))) {
+    decorate_annotation("foo", slice = i, {
+        grid.text(paste(text_list[[i]], collapse = "\n"), x = unit(1, "mm"), just = "left",
+                  gp = gpar(fontsize = 10))
+    })
+}
+
+for(i in 1:length(rev(sig.df[!duplicated(sig.df[,"cluster"]), ]$cluster))) {
+    decorate_annotation("Cluster", slice = i, {
+        grid.text(unlist(lapply(levels(df$clus), function(x){strsplit(x," ")[[1]][2]}))[i], just = "center")
+    })
+}
+
+dev.off()
+
+
+
+
+
+# ,
+#         mat = list(
+#             title = "Scaled expression",
+#             legend_direction = "horizontal"
+#         )
+
+
+
+
+
+
+
+
+### Fig extra - plot by lower res clusters
+pi <- DimPlot(seu.obj, 
+              reduction = "umap", 
+              group.by = "majorID_sub_big",
+              pt.size = 0.25,
+              cols = colz.df$V1,
+              label = F,
+              label.box = F
+             )
+p <- formatUMAP(plot = pi) + NoLegend()
+ggsave(paste0("./output/", outName, "/", outName, "_major.png"), width = 7, height = 7)
 
 
 ### Fig extra - plot original cluster umap
@@ -271,7 +958,7 @@ features <- c("TRAT1","GZMA","GZMB","SYNE1","AKAP5","SEMA7A",
 pi <- majorDot(seu.obj = seu.obj, groupBy = "majorID_sub",
                features = features
               ) + theme(axis.title = element_blank(),
-                        axis.text = element_text(size = 12))
+                        axis.text = element_text(size = 12)) #+ geom_tile(aes(fill = c(1,1,1,2,2,2,2,2,2,3), x = 0), size = 1, show.legend = FALSE)
 ggsave(paste("./output/", outName, "/", outName, "_fig2b.png", sep = ""), width =9, height = 5)
 
 
@@ -371,6 +1058,69 @@ pi <- formatUMAP(plot = pi) + NoLegend() + theme(plot.title = element_text(size 
                                                  panel.border = element_blank()) + ggtitle("Human T cell reference mapping")
 ggsave(paste("./output/", outName,"/",outName, "_umap_Predicted_gutAtlas.png", sep = ""), width = 7, height = 7)
 
+#wget https://ftp.ncbi.nlm.nih.gov/geo/series/GSE225nnn/GSE225599/suppl/GSE225599_final_dataSet_H.rds.gz #just healthy
+seu.pbmc <- readRDS("GSE225599_final_dataSet_H.rds")
+Idents(seu.pbmc) <- "celltype.l1"
+seu.pbmc <- subset(seu.pbmc, subset = celltype.l1 == "CD4 T cell" | celltype.l1 == "CD8/NK cell" | celltype.l1 == "gd T cell" | celltype.l1 == "DN T cell")
+seu.pbmc.list <- SplitObject(seu.pbmc, split.by = "orig.ident")
+seu.duod.list <- SplitObject(seu.obj, split.by = "orig.ident")
+
+#integrate the two datasets
+seu.obj <- indReClus(seu.list = c(seu.pbmc.list,seu.duod.list), outDir = "./output/s2/", subName = "pbmc_duod", preSub = T, nfeatures = 2000, saveRDS = F, returnObj = T, 
+                      vars.to.regress = "percent.mt"
+                       )
+
+#visulize the data & evaluate
+seu.obj <- dataVisUMAP(seu.obj = seu.obj, outDir = "./output/s3/", outName = "240111_tcell_pbmc_NoIntrons_2000", final.dims = 40, final.res = 0.6, stashID = "clusterID_sub_pbmc", 
+                        algorithm = 3, prefix = "integrated_snn_res.", min.dist = 0.3, n.neighbors = 30, assay = "integrated", saveRDS = F,
+                        features = c("PTPRC", "CD3E", "CD8A", "GZMA", 
+                                     "IL7R", "ANPEP", "FLT3", "DLA-DRA", 
+                                     "CD4", "MS4A1", "PPBP","HBM")
+                       )
+
+seu.obj <- readRDS("./output/s3/240111_tcell_pbmc_NoIntrons_2000_res0.2_dims40_dist0.3_neigh30_S3.rds")
+
+seu.obj$tissueSource <- ifelse(grepl("cfam", seu.obj$orig.ident), "pbmc", "duod") 
+table(seu.obj$clusterID_sub_pbmc, seu.obj$tissueSource)
+
+seu.obj$ct_merge <- as.factor(ifelse(grepl("cfam", seu.obj$orig.ident), as.character(seu.obj$celltype.l2), as.character(seu.obj$majorID_sub)))
+
+Idents(seu.obj) <- "tissueSource"
+set.seed(12)
+seu.obj.ds <- subset(x = seu.obj, downsample = min(table(seu.obj@meta.data$tissueSource)))
+pi <- DimPlot(seu.obj.ds, 
+              reduction = "umap", 
+              group.by = "ct_merge",
+              #cols = levels(seu.obj.ds$colz), #check colorization is correct
+              split.by = "tissueSource",
+              pt.size = 0.25,
+              label = T,
+              label.box = T,
+              shuffle = F
+)
+pi <- formatUMAP(plot = pi) + NoLegend() + theme(plot.title = element_text(size = 18, vjust = 1),
+                                                 axis.title = element_blank(),
+                                                 panel.border = element_blank()) + ggtitle("Canine PBMC + duod T cells")
+ggsave(paste("./output/", outName,"/",outName, "_umap_int.png", sep = ""), width = 14, height = 7)
+
+
+pi <- DimPlot(seu.obj.ds, 
+              reduction = "umap", 
+              group.by = "ct_merge",
+              #cols = levels(seu.obj.ds$colz), #check colorization is correct
+              split.by = "ct_merge",
+              ncol = 5,
+              pt.size = 0.25,
+              label = T,
+              label.box = T,
+              shuffle = F
+)
+pi <- formatUMAP(plot = pi) + NoLegend() + theme(plot.title = element_text(size = 18, vjust = 1),
+                                                 axis.title = element_blank(),
+                                                 panel.border = element_blank()) + ggtitle("Canine PBMC + duod T cells")
+ggsave(paste("./output/", outName,"/",outName, "_umap_int.png", sep = ""), width = 18, height = 18)
+
+
 
 ### Fig extra: plot enrichment scores
 ecLists <- read.csv("gut_ecTerms.csv", header = T)
@@ -393,6 +1143,38 @@ p <- majorDot(seu.obj = seu.obj, groupBy = "majorID_sub",
                               axis.title.y = element_blank(),
                               plot.margin = margin(7, 7, 0, 100, "pt")) + scale_y_discrete(position = "right") + guides(size = guide_legend(nrow = 2, byrow = F, title = 'Percent\nenriched')) + guides(color = guide_colorbar(title = 'Scaled\nenrichment score')) 
 ggsave(paste("./output/", outName, "/", outName, "_gut_modScores.png", sep = ""), width = 8, height = 6)
+
+
+
+### Fig extra: plot enrichment scores
+# ecLists <- read.csv("./output/allCells/n3n4/linDEG/majorID_pertyName_T cellgeneList.csv", header = T)
+# ecLists <- ecLists[ecLists$avg_log2FC > 0, ]
+
+# modulez <- split(ecLists$X, ecLists$cellType)
+# modulez <- modulez[unname(unlist(lapply(unlist(lapply(modulez, length)), function(x){ifelse(x >= 10, TRUE, FALSE)})))]
+modulez <- list("CD8_EM_SIG" = c("CCL5", "GZMH", "CD8A", "TRAC", "KLRD1", "NKG7", "GZMK", "CST7", "CD8B", "TRGC2"))
+
+seu.obj <- AddModuleScore(seu.obj,
+                          features = modulez,
+                         name = "_score")
+
+names(seu.obj@meta.data)[grep("_score", names(seu.obj@meta.data))] <- names(modulez)
+features <- names(modulez)
+
+p <- majorDot(seu.obj = seu.obj, groupBy = "majorID_sub",
+                     features = features
+                    ) + theme(legend.position = "bottom",
+                              axis.title.y = element_blank(),
+                              plot.margin = margin(7, 7, 0, 100, "pt")) + scale_y_discrete(position = "right") + guides(size = guide_legend(nrow = 2, byrow = F, title = 'Percent\nenriched')) + guides(color = guide_colorbar(title = 'Scaled\nenrichment score')) 
+ggsave(paste("./output/", outName, "/", outName, "_gut_modScores.png", sep = ""), width = 8, height = 6)
+
+
+features <- c("CD8_EM_SIG")
+p <- prettyFeats(seu.obj = seu.obj, nrow = 1, ncol = 1, features = features, 
+                 color = "black", order = F, pt.size = 0.0000001, title.size = 18)
+ggsave(paste("./output/", outName, "/",outName, "_QC_feats.png", sep = ""), width = 4, height = 4)
+
+
 
 
 ### Fig supp 2c - umap by sample
@@ -429,20 +1211,99 @@ res.ftest <- lapply(levels(freqy$data$majorID_sub), function (x){
     car::leveneTest(freq ~ cellSource, data = data.df)
 })
 
+seu.obj.sub <- subset(seu.obj, invert = T, subset = majorID_sub_big == "ILC2")
+seu.obj.sub$majorID_sub_big <- droplevels(seu.obj.sub$majorID_sub_big)
+### Fig extra - Evlauate cell frequency by majorID_sub_big
+freqy <- freqPlots(seu.obj.sub, method = 1, nrow= 1, groupBy = "majorID_sub_big", legTitle = "Cell source",refVal = "name2", showPval = F,
+                   namez = unique(seu.obj$name2), 
+                   colz = unique(seu.obj$colz)
+                  )
+
+freqy + ggpubr::stat_compare_means(method = "t.test",
+                                   method.args = list(var.equal = F),
+                                   aes(label = paste0("p = ", ..p.format..)), label.x.npc = "left", label.y.npc = 1,vjust = -1, size = 3)
+
+
+ggsave(paste("./output/", outName, "/",outName, "_freqPlots.png", sep = ""), width = 10, height = 5)
+
+
+#confirm variability is consistent between CIE and H
+res.ftest <- lapply(levels(freqy$data$majorID_sub_big), function (x){
+    data.df <- freqy$data[freqy$data$majorID_sub_big ==  x, ]
+    car::leveneTest(freq ~ cellSource, data = data.df)
+})
+
+
+### Fig extra - DEG between Trm and Tinf
+p_volc <- btwnClusDEG(seu.obj = seu.obj, groupBy = "majorID_sub_big", idents.1 = "Tissue resident", idents.2 = "Non-resident", bioRep = "name2",padj_cutoff = 0.05, lfcCut = 0.58, 
+                      minCells = 25, outDir = paste0("./output/", outName, "/"), 
+                      title = "Tres_vs_Tnonres", idents.1_NAME = "Tres", idents.2_NAME = "Tnonres", 
+                      returnVolc = T, doLinDEG = F, paired = T, addLabs = NULL, lowFilter = T, dwnSam = F, setSeed = 24
+                    )
+
+p  <- prettyVolc(plot = p_volc[[1]], rightLab = "Up in Tres", leftLab = "Up in Tnonres", arrowz = T) + labs(x = "log2(FC) Tres vs Tnonres") + NoLegend()
+ggsave(paste("./output/", outName, "/", outName, "_TresVTnonres.png", sep = ""), width = 7, height = 7)
+
+
 
 ### Fig 2d - DEG between Trm and Tinf
 p_volc <- btwnClusDEG(seu.obj = seu.obj, groupBy = "clusterID_final", idents.1 = "0", idents.2 = "1", bioRep = "name2",padj_cutoff = 0.05, lfcCut = 0.58, 
                       minCells = 25, outDir = paste0("./output/", outName, "/"), 
-                      title = "Trm_vs_Tinf", idents.1_NAME = "Trm", idents.2_NAME = "Tinf", 
+                      title = "CD8-TRM_vs_IL7R_T", idents.1_NAME = "Trm", idents.2_NAME = "Tinf", 
                       returnVolc = T, doLinDEG = F, paired = T, addLabs = NULL, lowFilter = T, dwnSam = F, setSeed = 24
                     )
 
-p  <- prettyVolc(plot = p_volc[[1]], rightLab = "Up in Trm", leftLab = "Up in Tinf", arrowz = T) + labs(x = "log2(FC) Trm vs Tinf") + NoLegend()
+p  <- prettyVolc(plot = p_volc[[1]], rightLab = "Up in CD8_TRM (c0)", leftLab = "Up in IL7R+_T (c1)", arrowz = T) + labs(x = "log2(FC) CD8_TRM vs IL7R+_T") + NoLegend()
 ggsave(paste("./output/", outName, "/", outName, "_fig2d.png", sep = ""), width = 7, height = 7)
 
 
 ### Fig 2e: gsea of the DGE results
 p <- plotGSEA(pwdTOgeneList = "./output/tcell/Trm_vs_Tinf_all_genes.csv", category = "C5", subcategory = NULL, 
+              upCol = "blue", dwnCol = "red", size = 4.5, Trim) 
+
+minVal <- -12
+maxVal <- 8
+
+pi <- p + scale_x_continuous(limits = c(minVal, maxVal), name = "Signed log10(padj)") + 
+    theme(axis.title=element_text(size = 16)) + 
+
+    annotate("segment", x = -0.1, 
+             y = 17, 
+             xend = minVal, 
+             yend = 17, 
+             lineend = "round", linejoin = "bevel", linetype ="solid", colour = "blue",
+             size = 1, arrow = arrow(length = unit(0.1, "inches"))
+            ) + 
+
+    annotate(geom = "text", x = (minVal-0.1*1.5)/2-0.1*1.5, 
+             y = 18,
+             label = "Up in IL7R+_T (c1)",
+             hjust = 0.5,
+             vjust = 1.5,
+             size = 5) +
+
+    annotate("segment", x = 0.1, 
+             y = 17, 
+             xend = maxVal,
+             yend = 17,
+             lineend = "round", linejoin = "bevel", linetype ="solid", colour = "red",
+             size = 1, arrow = arrow(length = unit(0.1, "inches"))
+            ) + 
+
+    annotate(geom = "text", x = (maxVal-0.1*1.5)/2+0.1*1.5, 
+             y = 18,
+             label = "Up in CD8_TRM (c0)",
+             hjust = 0.5,
+             vjust = 1.5,
+             size = 5)
+
+
+ggsave(paste("./output/", outName, "/", outName, "_fig2e.png", sep = ""), width = 10, height = 7)
+
+
+
+### Fig extra: gsea of the DGE results using majorID_sub_big
+p <- plotGSEA(pwdTOgeneList = "./output/tcell/Tres_vs_Tnonres_all_genes.csv", category = "C7", subcategory = NULL, 
               upCol = "blue", dwnCol = "red", size = 4.5) 
 
 minVal <- -12
@@ -482,9 +1343,25 @@ pi <- p + scale_x_continuous(limits = c(minVal, maxVal), name = "Signed log10(pa
              size = 5)
 
 
-ggsave(paste("./output/", outName, "/", outName, "_fig2e.png", sep = ""), width = 10, height = 7)
+ggsave(paste("./output/", outName, "/", outName, "_gseaTresVTnonres.png", sep = ""), width = 10, height = 7)
 
 
 ########################################### <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 #######   end T cell analysis   ######## <<<<<<<<<<<<<<
 ########################################### <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+### Fig extra: dge analysis all cells
+seu.obj$allCells <- "DGE analysis of all cells"
+seu.obj$allCells <- as.factor(seu.obj$allCells)
+linDEG(seu.obj = seu.obj, threshold = 1, thresLine = F, groupBy = "allCells", comparision = "cellSource", contrast = c("CIE", "Healthy"),
+       outDir = paste0("./output/", outName,"/"), 
+       outName = "all_cells", cluster = NULL, labCutoff = 15, noTitle = F,
+                   colUp = "red", colDwn = "blue", subtitle = T, returnUpList = F, returnDwnList = F, forceReturn = F, useLineThreshold = F, pValCutoff = 0.01, saveGeneList = T, addLabs = ""
+                  )
+
+
+### Fig extra: dge analysis by major cell types
+linDEG(seu.obj = seu.obj, groupBy = "majorID_sub_big", comparision = "cellSource", contrast= c("CIE","Healthy"),
+       outDir = paste0("./output/", outName,"/"), outName = "majorID_sub_big", 
+       pValCutoff = 0.01, saveGeneList = T, addLabs = "", labsHide = "^ENSCAFG"
+                  )
