@@ -3,13 +3,16 @@
 #load custom functions & packages
 source("/pl/active/dow_lab/dylan/repos/K9-PBMC-scRNAseq/analysisCode/customFunctions.R")
 
-### complete analysis with n=4 cie
+### Analysis note: 
+# This script loads in the previously processed Seurat object (./output/s3/230706_duod_h3c6_NoIntrons_res0.4_dims50_dist0.5_neigh40_S3.rds)
+# then removes the two dogs who ended up not meeting inclusion criteria. The data are re-integrated then 1 low quality cluster is removed.
+# Output is a processed Seurat object called ./output/s3/230816_duod_h3c4_NoIntrons_res1.3_dims40_dist0.3_neigh50_S3.rds
 
-########################################### <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+################################################# <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 #######   begin all cell preprocessing   ######## <<<<<<<<<<<<<<
-########################################### <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+################################################# <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
-### load in the object that contains non-CIE diseased dogs
+#load in the object that contains non-CIE diseased dogs
 seu.obj <- readRDS("./output/s3/230706_duod_h3c6_NoIntrons_res0.4_dims50_dist0.5_neigh40_S3.rds")
 
 #load in meta data
@@ -65,7 +68,7 @@ seu.obj <- indReClus(seu.obj = seu.obj, outDir = "./output/s2/", subName = "2308
 
 #clustree to determine clus resolution
 # seu.obj <- readRDS(file = "./output/s2/230713_duod_h3c4_NoIntrons_S2.rds")
-# clusTree(seu.obj = seu.obj, dout = "./output/clustree/", outName = "230606_duod_h3c3_NoIntrons", test_dims = 40, algorithm = 3, prefix = "integrated_snn_res.")
+clusTree(seu.obj = seu.obj, dout = "./output/clustree/", outName = "230606_duod_h3c3_NoIntrons", test_dims = 40, algorithm = 3, prefix = "integrated_snn_res.")
 
 #visulize the data & evaluate
 seu.obj <- dataVisUMAP(seu.obj = seu.obj, outDir = "./output/s3/", outName = "230816_duod_h3c4_NoIntrons", final.dims = 40, final.res = 1.3, stashID = "clusterID_2_1", 
@@ -75,6 +78,6 @@ seu.obj <- dataVisUMAP(seu.obj = seu.obj, outDir = "./output/s3/", outName = "23
                                      "CD4", "MS4A1", "PPBP","HBM")
                        )
 
-########################################### <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+############################################### <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 #######   end all cell preprocessing   ######## <<<<<<<<<<<<<<
-########################################### <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+############################################### <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
