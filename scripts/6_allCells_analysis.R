@@ -83,26 +83,56 @@ seu.obj <- RenameIdents(seu.obj, c("0" = "Monocyte", "1" = "Neutrophil",
 seu.obj$majorID_sub <- Idents(seu.obj)
 ct.l3 <- c(ct.l3,seu.obj$majorID_sub)
 
-#load in processed tcell subset data
+#load in processed tcell subset data -- to get ILC2s
 seu.obj <- readRDS("/pl/active/dow_lab/dylan/k9_duod_scRNA/analysis/output/s3/230913_tcell_duod_h3c4_NoIntrons_2500_res0.6_dims35_dist0.3_neigh30_S3.rds")
 seu.obj$cellSource <- factor(seu.obj$cellSource, levels = c("Healthy","CIE"))
 colz.df <- read.csv("./cellColz.csv", header = F)
 outName <- "tcell"
 
+#remane idents to match the results of clustering at a resolution of 0.2 (as determined using clustree)
 Idents(seu.obj) <- "clusterID_sub"
-seu.obj <- RenameIdents(seu.obj, c("0" = "Trm", "1" = "Trm", 
-                                   "2" = "Tnaive", "3" = "Trm",
+seu.obj <- RenameIdents(seu.obj, c("0" = "Tissue resident", "1" = "Tissue resident", 
+                                   "2" = "Non-resident", "3" = "Memory",
+                                   "4" = "Tissue resident", "5" = "Non-resident",
+                                   "6" = "Non-resident", "7" = "Non-resident",
+                                   "8" = "Memory", "9" = "Tissue resident",
+                                   "10" = "Tissue resident", "11" = "Non-resident",
+                                   "12" = "Tissue resident", "13" = "ILC2",
+                                   "14" = "Non-resident","15" = "Non-resident")
+                       )
+seu.obj$majorID_sub <- Idents(seu.obj)
+
+seu.obj <- subset(seu.obj, subset = majorID_sub == "ILC2")
+
+seu.obj$majorID_sub <- droplevels(Idents(seu.obj))
+ct.l3 <- c(ct.l3,seu.obj$majorID_sub)
+
+#load in processed tcell subset data -- to get other T cell pops
+seu.obj <- readRDS("./output/s3/240112_tcell_noILC_duod_h3c4_NoIntrons_2500_res0.6_dims30_dist0.1_neigh10_S3.rds")
+
+#clusterID_sub 10 is artifactually split across the UMAP space. Use UMAP coordinates to split out cluster
+#extract the barcodes of cells below -2.5 on the y-axis of the UMAP
+lowerC10 <- seu.obj@reductions$umap@cell.embeddings %>% as.data.frame() %>% filter(rownames(.) %in% WhichCells(seu.obj, idents = "10"), UMAP_2 < -2.5)
+seu.obj$clusterID_sub <- as.factor(ifelse(seu.obj$clusterID_sub == "10",
+                                          ifelse(names(seu.obj$clusterID_sub) %in% rownames(lowerC10), "10.2", "10.1"), as.character(seu.obj$clusterID_sub)
+                                         )
+                                  )
+table(seu.obj$clusterID_sub)
+
+#stash new cell idents
+Idents(seu.obj) <- "clusterID_sub"
+seu.obj <- RenameIdents(seu.obj, c("0" = "CD8_eff", "1" = "CD8_eff", 
+                                   "2" = "Tnaive", "3" = "CD8_TRM",
                                    "4" = "gdT_1", "5" = "Tnaive",
                                    "6" = "NK_T", "7" = "Tnaive",
-                                   "8" = "Tnaive", "9" = "gdT_2",
-                                   "10" = "Trm", "11" = "Treg",
-                                   "12" = "Trm", "13" = "ILC2",
-                                   "14" = "NK","15" = "T_IFN")
+                                   "8" = "CD8_mem", "9" = "gdT_2",
+                                   "10.1" = "Tnaive", "10.2" = "CD8_eff",
+                                   "11" = "CD8_eff", "12" = "Treg",
+                                   "13" = "NK","14" = "T_IFN")
                        )
+seu.obj$majorID_sub_noILC <- Idents(seu.obj)
+ct.l3 <- c(ct.l3,seu.obj$majorID_sub_noILC)
 
-
-seu.obj$majorID_sub <- Idents(seu.obj)
-ct.l3 <- c(ct.l3,seu.obj$majorID_sub)
 
 #load in processed allCells data again... to add new metadata
 seu.obj <- readRDS("/pl/active/dow_lab/dylan/k9_duod_scRNA/analysis/output/s3/230816_duod_h3c4_NoIntrons_res1.3_dims40_dist0.3_neigh50_S3.rds")
@@ -132,7 +162,7 @@ seu.obj <- subset(seu.obj, invert = T,
                  )
 
 seu.obj$celltype.l3 <- droplevels(seu.obj$celltype.l3)
-# saveRDS(seu.obj, "./output/s3/canine_duodenum_annotated.rds")
+saveRDS(seu.obj, "./output/s3/canine_duodenum_annotated.rds")
 
 
 ########################################### <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
@@ -163,29 +193,29 @@ ggsave(paste("./output/", outName, "/", subname,"/",outName, "_QC_feats.png", se
 
 
 ### Supp data - run FindAllMarkers on major and high-res cell types
-saveName <- "231022_allCells_duod_h3c4_NoIntrons_2500"
+saveName <- "240128_allCells_duod_h3c4_NoIntrons_2500"
 vilnPlots(seu.obj = seu.obj, groupBy = "majorID_pertyName", numOfFeats = 24, outName = saveName,
-                     outDir = paste0("./output/viln/",outName,"/"), outputGeneList = T, filterOutFeats = c("^MT-", "^RPL", "^RPS")
+                     outDir = paste0("./output/viln/",outName,"/"), outputGeneList = T, filterOutFeats = c("^MT-", "^RPL", "^RPS"), returnViln = F
                     )
 
 #export surface marker data with finaallmarkers
 surface.markers <- read.csv("./surface_master.csv")[ ,c("UniProt.gene", "UniProt.description", "Surfaceome.Label", "Surfaceome.Label.Source")] %>% filter(!duplicated(UniProt.gene))
-cluster.markers <- read.csv("./output/viln/allCells/231022_allCells_duod_h3c4_NoIntrons_2500_gene_list.csv")
+cluster.markers <- read.csv("./output/viln/allCells/240128_allCells_duod_h3c4_NoIntrons_2500_gene_list.csv")
 write.csv(cluster.markers[ ,c(7,8,2:6)] %>% left_join(surface.markers, by = c("gene" = "UniProt.gene")),
-          file = "./output/supplementalData/majorID_markers.csv", row.names = F)
+          file = "./output/supplementalData/supplemental_data_1.csv", row.names = F)
 
 
 
-saveName <- "231204_allCells_duod_h3c4_NoIntrons_2500"
+saveName <- "240128_allCells_duod_h3c4_NoIntrons_2500"
 vilnPlots(seu.obj = seu.obj, groupBy = "celltype.l3", numOfFeats = 24, outName = saveName,
-                     outDir = paste0("./output/viln/",outName,"/"), outputGeneList = T, filterOutFeats = c("^MT-", "^RPL", "^RPS")
+                     outDir = paste0("./output/viln/",outName,"/"), outputGeneList = T, filterOutFeats = c("^MT-", "^RPL", "^RPS"), returnViln = F
                     )
 
 #export surface marker data with finaallmarkers
 surface.markers <- read.csv("./surface_master.csv")[ ,c("UniProt.gene", "UniProt.description", "Surfaceome.Label", "Surfaceome.Label.Source")] %>% filter(!duplicated(UniProt.gene))
 cluster.markers <- read.csv("./output/viln/allCells/231204_allCells_duod_h3c4_NoIntrons_2500_gene_list.csv")
 write.csv(cluster.markers[ ,c(7,8,2:6)] %>% left_join(surface.markers, by = c("gene" = "UniProt.gene")),
-          file = "./output/supplementalData/ctl3_markers.csv", row.names = F)
+          file = "./output/supplementalData/supplemental_data_2.csv", row.names = F)
 
 
 #export data for cellbrowser
@@ -215,26 +245,6 @@ pi <- DimPlot(seu.obj,
 p <- formatUMAP(plot = pi) + NoLegend() + theme(plot.title = element_text(size = 18, vjust = 1),
                                                 axis.title = element_blank(),
                                                 panel.border = element_blank()) + ggtitle("Annotated canine duodenum atlas")
-
-axes <- ggplot() + labs(x = "UMAP1", y = "UMAP2") + 
-theme(axis.line = element_line(colour = "black", 
-                               arrow = arrow(angle = 30, length = unit(0.1, "inches"),
-                                             ends = "last", type = "closed"),
-                              ),
-      axis.title.y = element_text(colour = "black", size = 20),
-      axis.title.x = element_text(colour = "black", size = 20),
-      panel.border = element_blank(),
-      panel.background = element_rect(fill = "transparent",colour = NA),
-      plot.background = element_rect(fill = "transparent",colour = NA),
-      panel.grid.major = element_blank(), 
-      panel.grid.minor = element_blank()
-     )
-
-p <- p + inset_element(axes,left= 0,
-  bottom = 0,
-  right = 0.25,
-  top = 0.25,
-                       align_to = "full")
 ggsave(paste("./output/", outName, "/", outName, "_ctl3_UMAP.png", sep = ""), width = 7, height = 7)
 
 
@@ -439,8 +449,8 @@ scale_fill_manual(labels = levels(seu.obj$name2),
                   values = levels(seu.obj$colz)) + theme(axis.title.y = element_blank(),
                                                          axis.title.x = element_text(size = 14),
                                                          axis.text = element_text(size = 12)
-                                                        ) 
-ggsave(paste("./output/", outName,"/", subname, "/",outName, "_fig1d.png", sep = ""), width =7, height = 4)
+                                                        )  + guides(fill = guide_legend(nrow = 2))
+ggsave(paste("./output/", outName,"/", subname, "/",outName, "_fig1d.png", sep = ""), width = 5, height = 4)
 
 
 ### Fig supp 1e: umap by sample
@@ -505,6 +515,8 @@ df.list <- lapply(files, read.csv, header = T)
 # feats.list <- lapply(df.list, function(x){feats <- x %>% filter(avg_log2FC > 0) %>% select(X)})
 feats.list <- lapply(df.list, function(x){feats <- x %>% filter(avg_log2FC > 0, p_val_adj < 0.01) %>% select(X)})
 feats.list <- lapply(df.list, function(x){feats <- x %>% filter(avg_log2FC < 0, p_val_adj < 0.01) %>% select(X)})
+feats.list <- lapply(df.list, function(x){feats <- x %>% filter(p_val_adj < 0.01) %>% select(X)})
+
 
 
 library(UpSetR)
@@ -525,3 +537,87 @@ par(mfcol=c(1,1))
 p <- upset(upSet.df, sets = colnames(upSet.df)[-1], cutoff = NULL,  nintersects = 7,empty.intersections = T)
 p
 dev.off()
+
+
+cnts_mat <- do.call(rbind, df.list) %>% mutate(direction = ifelse(avg_log2FC > 0, "Up", "Down")) %>% group_by(cellType,direction) %>% summarize(nRow = n()) %>% pivot_wider(names_from = cellType, values_from = nRow) %>% as.matrix() %>% t()
+
+colnames(cnts_mat) <- cnts_mat[1,]
+cnts_mat <- cnts_mat[-c(1),]
+class(cnts_mat) <- "numeric"
+
+
+#order by number of total # of DEGs
+orderList <- rev(rownames(cnts_mat)[order(rowSums(cnts_mat))])
+cnts_mat <- cnts_mat[match(orderList, rownames(cnts_mat)),]        
+       
+library(circlize)
+png(file = paste0("./output/", outName, "/", outName, "deg_heatmap.png"), width=1500, height=2000, res=400)
+par(mfcol=c(1,1))         
+ht <- Heatmap(cnts_mat,#name = "mat", #col = col_fun,
+              name = "# of DEGs",
+              cluster_rows = F,
+              row_title = "Cell type",
+              col=colorRamp2(c(0,max(cnts_mat)), colors = c("white","red")),
+              cluster_columns = F,
+              column_title = "# of DEGs",
+              show_column_names = TRUE,
+              column_title_side = "top",
+              column_names_rot = 0,
+              column_names_centered = TRUE,
+              heatmap_legend_param = list(legend_direction = "horizontal", title_position = "topleft",  title_gp = gpar(fontsize = 16), 
+                                          labels_gp = gpar(fontsize = 8), legend_width = unit(6, "cm")),
+              cell_fun = function(j, i, x, y, width, height, fill) {
+                      grid.text(sprintf("%.0f", as.matrix(cnts_mat)[i, j]), x, y, gp = gpar(fontsize = 14, col = "black"))
+              })
+draw(ht, padding = unit(c(2, 12, 2, 5), "mm"),show_heatmap_legend = FALSE)
+dev.off()
+
+
+
+### Fig extra: gsea of the DGE results using majorID_sub_big
+df <- read.csv("./output/allCells/n3n4/linDEG/majorID_pertyName_Mast cellgeneList.csv")
+upGenes <- df %>% filter(p_val_adj < 0.01 & avg_log2FC > 0) %>% pull(X)
+dwnGenes <- df %>% filter(p_val_adj < 0.01 & avg_log2FC < 0) %>% pull(X)
+p <- plotGSEA(geneList = upGenes, geneListDwn = dwnGenes, category = "C5", subcategory = "GO:BP", 
+              upCol = "blue", dwnCol = "red", size = 3)
+
+minVal <- -5
+maxVal <- 7
+
+pi <- p + scale_x_continuous(limits = c(minVal, maxVal), name = "Signed log10(padj)") + 
+    theme(axis.title=element_text(size = 16)) + 
+
+    annotate("segment", x = -0.1, 
+             y = 17, 
+             xend = minVal, 
+             yend = 17, 
+             lineend = "round", linejoin = "bevel", linetype ="solid", colour = "blue",
+             size = 1, arrow = arrow(length = unit(0.1, "inches"))
+            ) + 
+
+    annotate(geom = "text", x = (minVal-0.1*1.5)/2-0.1*1.5, 
+             y = 18,
+             label = "Repressed in CIE",
+             hjust = 0.5,
+             vjust = 1.5,
+             size = 5) +
+
+    annotate("segment", x = 0.1, 
+             y = 17, 
+             xend = maxVal,
+             yend = 17,
+             lineend = "round", linejoin = "bevel", linetype ="solid", colour = "red",
+             size = 1, arrow = arrow(length = unit(0.1, "inches"))
+            ) + 
+
+    annotate(geom = "text", x = (maxVal-0.1*1.5)/2+0.1*1.5, 
+             y = 18,
+             label = "Induced in CIE",
+             hjust = 0.5,
+             vjust = 1.5,
+             size = 5)
+
+
+ggsave(paste("./output/", outName, "/", subName, "/", outName, "_gseaMast.png", sep = ""), width = 10, height = 7)
+
+

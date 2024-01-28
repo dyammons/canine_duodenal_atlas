@@ -145,8 +145,8 @@ pi <- DimPlot(seu.obj,
               label = T,
               label.box = T,
               shuffle = TRUE
-)
-p <- cusLabels(plot = pi, shape = 21, size = 8, alpha = 0.8) + NoLegend() #, labCol = majorColors.df$labCol
+) + NoLegend()
+p <- cusLabels(plot = pi, shape = 21, size = 8, alpha = 0.8, smallAxes = T) #, labCol = majorColors.df$labCol
 ggsave(paste("./output/", outName,"/", outName, "_supp4a.png", sep = ""), width = 7, height = 7)
 
 
@@ -324,10 +324,13 @@ createPB(seu.obj = seu.obj, groupBy = "allCells", comp = "cellSource", biologica
 p <- pseudoDEG(metaPWD = paste0("./output/", outName,"/pseudoBulk/allCells_deg_metaData.csv"), returnDDS = F, 
           padj_cutoff = 0.05, lfcCut = 0.58, outDir = paste0("./output/", outName,"/pseudoBulk/"), outName = "allCells", idents.1_NAME = "CIE", idents.2_NAME = "Healthy",
           inDir = paste0("./output/", outName,"/pseudoBulk/"), title = "All cells", fromFile = T, meta = NULL, pbj = NULL, returnVolc = T, paired = F, pairBy = "", 
-          minimalOuts = F, saveSigRes = T, filterTerm = "^ENSCAF", addLabs = NULL, mkDir = T
+          minimalOuts = F, saveSigRes = T, filterTerm = "^ENSCAF", addLabs = NULL, mkDir = T, labSize = 5.5
                      )
 
-pi  <- prettyVolc(plot = p[[1]], rightLab = NULL, leftLab = NULL, arrowz = F) + labs(x = "log2(FC) CIE vs Normal") + NoLegend()
+pi  <- prettyVolc(plot = p[[1]], rightLab = NULL, leftLab = NULL, arrowz = F) + labs(x = "log2(FC) CIE vs Normal") + NoLegend() + theme(panel.border = element_rect(color = "black",
+                                      fill = NA,
+                                      size = 2),
+                                      axis.line = element_blank())
 ggsave(paste("./output/", outName, "/", outName, "_supp4c.png", sep = ""), width = 7, height = 7)
 
 

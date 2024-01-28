@@ -150,7 +150,7 @@ pi <- DimPlot(seu.obj,
               label.box = T,
               shuffle = TRUE
 )
-p <- cusLabels(plot = pi, shape = 21, size = 10, textSize = 6, alpha = 0.8) + NoLegend() #, labCol = majorColors.df$labCol
+p <- cusLabels(plot = pi, shape = 21, size = 10, textSize = 6, alpha = 0.8, smallAxes = T) + NoLegend() #, labCol = majorColors.df$labCol
 ggsave(paste("./output/", outName,"/", outName, "_supp3a.png", sep = ""), width = 7, height = 7)
 
 
@@ -164,28 +164,7 @@ pi <- DimPlot(seu.obj,
               label.box = T,
               shuffle = TRUE
 )
-p <- cusLabels(plot = pi, shape = 21, size = 10, textSize = 6, alpha = 0.8) + NoLegend() + theme(axis.title = element_blank(),
-                                                                                  panel.border = element_blank())
-
-axes <- ggplot() + labs(x = "UMAP1", y = "UMAP2") + 
-theme(axis.line = element_line(colour = "black", 
-                               arrow = arrow(angle = 30, length = unit(0.1, "inches"),
-                                             ends = "last", type = "closed"),
-                              ),
-      axis.title.y = element_text(colour = "black", size = 20),
-      axis.title.x = element_text(colour = "black", size = 20),
-      panel.border = element_blank(),
-      panel.background = element_rect(fill = "transparent",colour = NA),
-      plot.background = element_rect(fill = "transparent",colour = NA),
-      panel.grid.major = element_blank(), 
-      panel.grid.minor = element_blank()
-     )
-
-p <- p + inset_element(axes,left= 0,
-  bottom = 0,
-  right = 0.25,
-  top = 0.25,
-                       align_to = "full")
+p <- cusLabels(plot = pi, shape = 21, size = 10, textSize = 6, alpha = 0.8, smallAxes = T) + NoLegend() #, labCol = majorColors.df$labCol
 ggsave(paste0("./output/", outName, "/", outName, "_fig3a.png"), width = 7, height = 7)
 
 
@@ -216,7 +195,7 @@ pi <- VlnPlot(object = seu.obj,
 ggsave(paste("./output/", outName, "/", outName, "_fig3b.png", sep = ""), width = 5, height =6)
 
 
-### Fig supp 3b - Plot key feats
+### Fig extra - Plot key feats
 features <- c("AIF1",
               "MS4A2", "CD4",
               "SELL", "S100A12","IL1B",
@@ -227,10 +206,10 @@ features <- c("AIF1",
 
 p <- prettyFeats(seu.obj = seu.obj, nrow = 5, ncol =  3, features = features, 
                  color = "black", order = F, pt.size = 0.25, title.size = 14, noLegend = T)
-ggsave(paste("./output/", outName, "/", outName, "_supp3b.png", sep = ""), width = 9, height = 15)
+ggsave(paste("./output/", outName, "/", outName, "_extraFeats.png", sep = ""), width = 9, height = 15)
 
 
-### Fig supp 3c - umap by sample
+### Fig supp 3b - umap by sample
 Idents(seu.obj) <- "cellSource"
 set.seed(12)
 seu.obj.ds <- subset(x = seu.obj, downsample = min(table(seu.obj@meta.data$cellSource)))
@@ -242,8 +221,15 @@ pi <- DimPlot(seu.obj.ds,
               label = FALSE,
               shuffle = TRUE
 )
-pi <- formatUMAP(pi) + labs(colour="") + theme(legend.position = "top", legend.direction = "horizontal",legend.title=element_text(size=12)) + guides(colour = guide_legend(nrow = 1, override.aes = list(size = 4)))
-ggsave(paste("./output/", outName, "/", outName, "_supp3c.png", sep = ""), width =7, height = 7)
+pi <- formatUMAP(pi) + labs(colour="") + theme(legend.position = "top", 
+                                               legend.direction = "horizontal",
+                                               legend.justification = "center",
+                                               legend.title=element_text(size=12),
+                                               axis.title = element_blank(),
+                                               panel.border = element_blank(),
+                                               plot.margin = unit(c(-7, -7, -7, -7), "pt")
+                                              ) + guides(colour = guide_legend(nrow = 1, override.aes = list(size = 4)))
+ggsave(paste("./output/", outName, "/", outName, "_supp3b.png", sep = ""), width =7, height = 7)
 
 
 ### Fig supp: reference map using Gut Atlas data
@@ -318,12 +304,18 @@ ggsave(paste("./output/", outName, "/",outName, "_umap_Predicted_canPBMC_Atlas.p
 
 
 ### Fig supp 3c - evlauate cell frequency by majorID
-freqy <- freqPlots(seu.obj, method = 1, nrow= 1, groupBy = "majorID_sub", legTitle = "Cell source",refVal = "name2", showPval = F,
+freqy <- freqPlots(seu.obj, method = 1, nrow= 1, groupBy = "majorID_sub", legTitle = "Cell source",refVal = "name2", showPval = T,
                    namez = unique(seu.obj$name2), 
                    colz = unique(seu.obj$colz)
                   )
-
 ggsave(paste("./output/", outName, "/",outName, "_supp3c.png", sep = ""), width = 9, height = 3)
+
+### Fig extra - evlauate cell frequency by clusterID_sub
+freqy <- freqPlots(seu.obj, method = 1, nrow= 1, groupBy = "clusterID_sub", legTitle = "Cell source",refVal = "name2", showPval = T,
+                   namez = unique(seu.obj$name2), 
+                   colz = unique(seu.obj$colz)
+                  )
+ggsave(paste("./output/", outName, "/",outName, "_freq_by_clusID.png", sep = ""), width = 9, height = 3)
 
 
 ### Fig supp 3d: stacked bar graph by majorID_sub
