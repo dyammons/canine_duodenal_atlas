@@ -3,12 +3,16 @@
 #load custom functions & packages
 source("/pl/active/dow_lab/dylan/repos/K9-PBMC-scRNAseq/analysisCode/customFunctions.R")
 
+### Analysis note: 
+# This script loads in the previously processed Seurat object (./output/s3/230816_duod_h3c4_NoIntrons_res1.3_dims40_dist0.3_neigh50_S3.rds)
+# then subsets on myeloid cells and generates all figures assocaited with Figure 2
+
 ########################################### <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 #######   begin meyloid cell preprocessing   ######## <<<<<<<<<<<<<<
 ########################################### <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
 #read in processed "All cells" dataset
-seu.obj <- readRDS("/pl/active/dow_lab/dylan/k9_duod_scRNA/analysis/output/s3/230816_duod_h3c4_NoIntrons_res1.3_dims40_dist0.3_neigh50_S3.rds")
+seu.obj <- readRDS("./output/s3/230816_duod_h3c4_NoIntrons_res1.3_dims40_dist0.3_neigh50_S3.rds")
 seu.obj <- loadMeta(seu.obj = seu.obj, metaFile = "./colorID_cie3v4.csv", groupBy = "clusterID_2_1", metaAdd = "majorID")
 seu.obj <- loadMeta(seu.obj = seu.obj, metaFile = "./refColz.csv", groupBy = "orig.ident", metaAdd = "name2")
 seu.obj <- loadMeta(seu.obj = seu.obj, metaFile = "./refColz.csv", groupBy = "orig.ident", metaAdd = "name")
@@ -21,7 +25,6 @@ seu.obj$cellSource <- factor(seu.obj$cellSource, levels = c("Healthy","CIE"))
 seu.obj.sub <- subset(seu.obj,
                   subset = 
                   majorID ==  "myeloid")
-
 table(seu.obj.sub$majorID)
 table(seu.obj.sub$clusterID_2_1)
 table(seu.obj.sub$orig.ident)
@@ -72,7 +75,7 @@ seu.obj <- dataVisUMAP(seu.obj = seu.obj, outDir = "./output/s3/", outName = "23
 ########################################### <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
 #load in processed data
-seu.obj <- readRDS("/pl/active/dow_lab/dylan/k9_duod_scRNA/analysis/output/s3/230829_myeloid_duod_h3c4_NoIntrons_2500_res0.5_dims40_dist0.25_neigh25_S3.rds")
+seu.obj <- readRDS("./output/s3/230829_myeloid_duod_h3c4_NoIntrons_2500_res0.5_dims40_dist0.25_neigh25_S3.rds")
 seu.obj$cellSource <- factor(seu.obj$cellSource, levels = c("Healthy","CIE"))
 colz.df <- read.csv("./cellColz.csv", header = F)
 colz.df <- colz.df[colz.df$V2 == "myeloid", ]
@@ -112,18 +115,20 @@ ggsave(paste("./output/", outName, "/",outName, "_QC_feats.png", sep = ""), widt
 ### supp data - cell type gene signatures
 
 #generate violin plots for each cluster
-vilnPlots(seu.obj = seu.obj, groupBy = "clusterID_sub", numOfFeats = 24, outName = "230829_myeloid_duod_h3c4_NoIntrons_2500",
-                     outDir = "./output/viln/myeloid/", outputGeneList = T, filterOutFeats = c("^MT-", "^RPL", "^ENSCAF", "^RPS")
+# vilnPlots(seu.obj = seu.obj, groupBy = "clusterID_sub", numOfFeats = 24, outName = "230829_myeloid_duod_h3c4_NoIntrons_2500",
+#                      outDir = "./output/viln/myeloid/", outputGeneList = T, filterOutFeats = c("^MT-", "^RPL", "^RPS")
+#                     )
+
+#generate violin plots for each cell type
+vilnPlots(seu.obj = seu.obj, groupBy = "majorID_sub", numOfFeats = 24, outName = "240128_myeloid_duod_h3c4_NoIntrons_2500",
+                     outDir = "./output/viln/myeloid/", outputGeneList = T, filterOutFeats = c("^MT-", "^RPL", "^RPS")
                     )
 
-vilnPlots(seu.obj = seu.obj, groupBy = "majorID_sub", numOfFeats = 24, outName = "231022_myeloid_duod_h3c4_NoIntrons_2500",
-                     outDir = "./output/viln/myeloid/", outputGeneList = T, filterOutFeats = c("^MT-", "^RPL", "^ENSCAF", "^RPS")
-                    )
-
+#append with surfacome data
 surface.markers <- read.csv("./surface_master.csv")[ ,c("UniProt.gene", "UniProt.description", "Surfaceome.Label", "Surfaceome.Label.Source")] %>% filter(!duplicated(UniProt.gene))
 cluster.markers <- read.csv("./output/viln/myeloid/231022_myeloid_duod_h3c4_NoIntrons_2500_gene_list.csv")
 write.csv(cluster.markers[ ,c(7,8,2:6)] %>% left_join(surface.markers, by = c("gene" = "UniProt.gene")),
-          file = "./output/supplementalData/myeloid_markers.csv", row.names = F)
+          file = "./output/supplementalData/supplemental_data_4.csv", row.names = F)
 
 
 ### supp data -  export data for cell browser
@@ -136,7 +141,6 @@ ExportToCB_cus(seu.obj = seu.obj, dataset.name = "myeloid", outDir = "./output/c
                                      "DLA-DRA", "CCL14", "C1QC",
                                      "MSR1","CSF1R","CCL3",
                                      "FLT3", "BATF3", "CADM1")
-                          
                           )
 
 
@@ -145,16 +149,15 @@ pi <- DimPlot(seu.obj,
               reduction = "umap", 
               group.by = "clusterID_sub",
               pt.size = 0.25,
-            #  cols = majorColors.df$colz,
               label = T,
               label.box = T,
               shuffle = TRUE
-)
-p <- cusLabels(plot = pi, shape = 21, size = 10, textSize = 6, alpha = 0.8, smallAxes = T) + NoLegend() #, labCol = majorColors.df$labCol
+) + NoLegend()
+p <- cusLabels(plot = pi, shape = 21, size = 10, textSize = 6, alpha = 0.8, smallAxes = T)  #, labCol = majorColors.df$labCol
 ggsave(paste("./output/", outName,"/", outName, "_supp3a.png", sep = ""), width = 7, height = 7)
 
 
-### Fig 3a - UMAP by clusterID_final
+### Fig 2a - UMAP by clusterID_final
 pi <- DimPlot(seu.obj, 
               reduction = "umap", 
               group.by = "clusterID_final",
@@ -163,12 +166,12 @@ pi <- DimPlot(seu.obj,
               label = T,
               label.box = T,
               shuffle = TRUE
-)
-p <- cusLabels(plot = pi, shape = 21, size = 10, textSize = 6, alpha = 0.8, smallAxes = T) + NoLegend() #, labCol = majorColors.df$labCol
-ggsave(paste0("./output/", outName, "/", outName, "_fig3a.png"), width = 7, height = 7)
+) + NoLegend()
+p <- cusLabels(plot = pi, shape = 21, size = 10, textSize = 6, alpha = 0.8, smallAxes = T)  #, labCol = majorColors.df$labCol
+ggsave(paste0("./output/", outName, "/", outName, "_fig2a.png"), width = 7, height = 7)
 
 
-### Fig 3b - create violin plots for key feats
+### Fig 2b - create violin plots for key feats
 features <- c("IL22RA2","FSCN1","LY86", "BATF3", 
               "FLT3", "CADM1",              
               "MSR1","CCL3","CSF1R",
@@ -190,9 +193,7 @@ pi <- VlnPlot(object = seu.obj,
              ) + NoLegend() + theme(axis.ticks = element_blank(),
                                     axis.text.y = element_blank(),
                                     axis.title.x = element_blank())
-
-#plot <- prettyViln(plot = pi, colorData = NULL, nrow = 2, ncol = 4)
-ggsave(paste("./output/", outName, "/", outName, "_fig3b.png", sep = ""), width = 5, height =6)
+ggsave(paste("./output/", outName, "/", outName, "_fig2b.png", sep = ""), width = 5, height =6)
 
 
 ### Fig extra - Plot key feats
@@ -232,12 +233,12 @@ pi <- formatUMAP(pi) + labs(colour="") + theme(legend.position = "top",
 ggsave(paste("./output/", outName, "/", outName, "_supp3b.png", sep = ""), width =7, height = 7)
 
 
-### Fig supp: reference map using Gut Atlas data
+### Fig extra: reference map using Gut Atlas data
 seu.gut.myeloid <- MuDataSeurat::ReadH5AD("/pl/active/dow_lab/dylan/k9_duod_scRNA/analysis/myeloid_log_counts02_v2.h5ad")
 #download reference from https://www.gutcellatlas.org/#datasets
-reference <- seu.gut.myeloid
 
 #prep the reference
+reference <- seu.gut.myeloid
 reference <- SCTransform(reference, verbose = FALSE)
 reference <- RunPCA(reference)
 
@@ -269,7 +270,7 @@ pi <- formatUMAP(plot = pi)
 ggsave(paste("./output/", outName, "/",outName, "_umap_Predicted_gutAtlas.png", sep = ""), width = 10, height = 7)
 
 
-### Fig supp: reference map using canine PBMC Atlas data
+### Fig extra: reference map using canine PBMC Atlas data
 reference <- readRDS(file = "../../k9_PBMC_scRNA/analysis/output/s3/final_dataSet_HvO.rds")
 #download reference with utils::download.file("https://ftp.ncbi.nlm.nih.gov/geo/series/GSE225nnn/GSE225599/suppl/GSE225599_final_dataSet_HvO.rds.gz", dest = "/pwd/to/dir/final_dataSet_HvO.rds.gz")
 reference[['integrated']] <- as(object = reference[['integrated']] , Class = "SCTAssay")
@@ -310,6 +311,7 @@ freqy <- freqPlots(seu.obj, method = 1, nrow= 1, groupBy = "majorID_sub", legTit
                   )
 ggsave(paste("./output/", outName, "/",outName, "_supp3c.png", sep = ""), width = 9, height = 3)
 
+
 ### Fig extra - evlauate cell frequency by clusterID_sub
 freqy <- freqPlots(seu.obj, method = 1, nrow= 1, groupBy = "clusterID_sub", legTitle = "Cell source",refVal = "name2", showPval = T,
                    namez = unique(seu.obj$name2), 
@@ -333,7 +335,6 @@ seu.obj$allCells <- as.factor(seu.obj$allCells)
 createPB(seu.obj = seu.obj, groupBy = "allCells", comp = "cellSource", biologicalRep = "name2", lowFilter = T, dwnSam =F, min.cell = 15,
                      clusters = NULL, outDir = paste0("./output/", outName,"/pseudoBulk/") , grepTerm = "H", grepLabel = c("Healthy","CIE") #improve - fix this so it is more functional
                     )
-
 p <- pseudoDEG(metaPWD = paste0("./output/", outName,"/pseudoBulk/allCells_deg_metaData.csv"), returnDDS = F, 
           padj_cutoff = 0.05, lfcCut = 0.58, outDir = paste0("./output/", outName,"/pseudoBulk/"), outName = "allCells", idents.1_NAME = "CIE", idents.2_NAME = "Healthy",
           inDir = paste0("./output/", outName,"/pseudoBulk/"), title = "All cells", fromFile = T, meta = NULL, pbj = NULL, returnVolc = T, paired = F, pairBy = "", 
@@ -341,24 +342,22 @@ p <- pseudoDEG(metaPWD = paste0("./output/", outName,"/pseudoBulk/allCells_deg_m
                      )
 
 
-### Fig 3d - deg scatter plot
+### Fig 2c - deg scatter plot
 seu.obj$allCells <- "DGE analysis of myeloid cells"
 seu.obj$allCells <- as.factor(seu.obj$allCells)
 linDEG(seu.obj = seu.obj, groupBy = "allCells", comparision = "cellSource", outDir = paste0("./output/", outName,"/"), 
-       outName = "myeloid", labCutoff = 10, contrast = c("CIE", "Healthy"),
+       outName = "fig2c", labCutoff = 10, contrast = c("CIE", "Healthy"),
        subtitle = T, pValCutoff = 0.01, saveGeneList = T, addLabs = ""
       )
 
 
 ### Fig supp 3e - gsea plot using degs
-res.df <- read.csv("./output/myeloid/myeloid_DGE analysis of myeloid cellsgeneList.csv")
+res.df <- read.csv("./output/myeloid/fig2c_DGE_analysis_of_myeloid_cells_geneList.csv")
 geneList <- res.df %>% filter(p_val < 0.01) %>% filter(avg_log2FC > 0) %>% pull(X)
 
 p <- plotGSEA(geneList = geneList, upOnly = T, category = "C2", subcategory = "CP:REACTOME", size = 4.5,termsTOplot = 10) 
-
 pi <- p + scale_x_continuous(limits = c(-10,ceiling(max(p$data$x_axis)*1.05)), breaks = c(0,ceiling(max(p$data$x_axis)*1.05)/2,ceiling(max(p$data$x_axis)*1.05)),name = "log10(padj)") + ggtitle("Reactome") + theme(plot.title = element_text(size = 20, hjust = 0.5),
 axis.title=element_text(size = 16))
-
 ggsave(paste("./output/", outName, "/", outName, "_supp3e.png", sep = ""), width = 10, height =7)
 
 
@@ -369,11 +368,10 @@ linDEG(seu.obj = seu.obj, threshold = 1, thresLine = F, groupBy = "majorID_sub",
                   )
 
 
-### Fig extra - deg between cie and healthy within each cluster
+### Fig 2d - deg between cie and healthy within each cluster
 set.seed(12)
 Idents(seu.obj) <- "cellSource"
 seu.obj.sub <- subset(seu.obj, downsample = min(table(seu.obj$cellSource)))
-
 features <- c("IL1A", "IL1B", "S100A12" , "SOD2", "CXCL8")
 p <- FeaturePlot(seu.obj.sub,features = features, pt.size = 0.1, split.by = "cellSource", order = T, by.col = F,
                 ) + labs(x = "UMAP1", y = "UMAP2") & theme(axis.text = element_blank(),
@@ -387,7 +385,7 @@ p <- FeaturePlot(seu.obj.sub,features = features, pt.size = 0.1, split.by = "cel
                                                           ) & scale_color_gradient(breaks = pretty_breaks(n = 3), 
                                                                                    limits = c(NA, NA), low = "lightgrey", 
                                                                                    high = "darkblue")
-ggsave(paste("./output/", outName, "/",outName, "_fig3d.png", sep = ""), width = 6, height = 3)
+ggsave(paste("./output/", outName, "/",outName, "_fig2d.png", sep = ""), width = 6, height = 3)
 
 
 ########################################### <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
