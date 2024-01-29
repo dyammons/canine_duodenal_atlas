@@ -2,14 +2,16 @@
 
 #load custom functions & packages
 source("/pl/active/dow_lab/dylan/repos/K9-PBMC-scRNAseq/analysisCode/customFunctions.R")
+library(circlize)
 
-### complete analysis with n=4 cie
+### Analysis note: 
+# This script loads in the previously processed Seurat object (./output/s3/230816_duod_h3c4_NoIntrons_res1.3_dims40_dist0.3_neigh50_S3.rds)
+# then loads all of the major cell type datasets annoated though independent reclustering and transfers the cell type labels to the full
+# dataset. The script generates all figures assocaited with Figure 1.
 
-########################################### <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+################################################### <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 #######   Transfer cell type annotations   ######## <<<<<<<<<<<<<<
-########################################### <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
-
-### Metadata transfer from indivudally annotated datasets
+################################################### <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
 #load in processed allCells data
 seu.obj <- readRDS("/pl/active/dow_lab/dylan/k9_duod_scRNA/analysis/output/s3/230816_duod_h3c4_NoIntrons_res1.3_dims40_dist0.3_neigh50_S3.rds")
@@ -31,12 +33,10 @@ seu.obj <- RenameIdents(seu.obj, c("tcell" = "T cell", "epithelial" = "Epithelia
                                    "plasma" = "Plasma cell")
                        )
 seu.obj$majorID_pertyName <- Idents(seu.obj)
-
 seu.obj <- subset(seu.obj,
                   subset = majorID_pertyName == "Cycling T cell" |  majorID_pertyName == "B cell" |  majorID_pertyName == "Mast cell" | majorID_pertyName == "Plasma cell")
 
 table(seu.obj$majorID_pertyName)
-
 ct.l3 <- droplevels(seu.obj$majorID_pertyName)
 
 #load in processed epitheilal subset data
@@ -45,7 +45,6 @@ seu.obj$cellSource <- factor(seu.obj$cellSource, levels = c("Healthy","CIE"))
 colz.df <- read.csv("./cellColz.csv", header = F)
 colz.df <- colz.df[colz.df$V2 == "duod", ]
 outName <- "duod"
-
 Idents(seu.obj) <- "clusterID_sub"
 seu.obj <- RenameIdents(seu.obj, c("0" = "Enterocyte_1", "1" = "Enterocyte_1", 
                                    "2" = "Enterocyte_2", "3" = "Enterocyte_1",
@@ -61,7 +60,6 @@ seu.obj <- RenameIdents(seu.obj, c("0" = "Enterocyte_1", "1" = "Enterocyte_1",
                                    "22" = "Enterocyte_2", "23" = "Goblet",
                                    "24" = "Enteroendocrine")
                        )
-
 seu.obj$majorID_sub <- Idents(seu.obj)
 ct.l3 <- c(ct.l3,seu.obj$majorID_sub)
 
@@ -71,7 +69,6 @@ seu.obj$cellSource <- factor(seu.obj$cellSource, levels = c("Healthy","CIE"))
 colz.df <- read.csv("./cellColz.csv", header = F)
 colz.df <- colz.df[colz.df$V2 == "myeloid", ]
 outName <- "myeloid"
-
 Idents(seu.obj) <- "clusterID_sub"
 seu.obj <- RenameIdents(seu.obj, c("0" = "Monocyte", "1" = "Neutrophil", 
                                    "2" = "Eosinophil", "3" = "Macrophage",
@@ -88,8 +85,6 @@ seu.obj <- readRDS("/pl/active/dow_lab/dylan/k9_duod_scRNA/analysis/output/s3/23
 seu.obj$cellSource <- factor(seu.obj$cellSource, levels = c("Healthy","CIE"))
 colz.df <- read.csv("./cellColz.csv", header = F)
 outName <- "tcell"
-
-#remane idents to match the results of clustering at a resolution of 0.2 (as determined using clustree)
 Idents(seu.obj) <- "clusterID_sub"
 seu.obj <- RenameIdents(seu.obj, c("0" = "Tissue resident", "1" = "Tissue resident", 
                                    "2" = "Non-resident", "3" = "Memory",
@@ -101,9 +96,7 @@ seu.obj <- RenameIdents(seu.obj, c("0" = "Tissue resident", "1" = "Tissue reside
                                    "14" = "Non-resident","15" = "Non-resident")
                        )
 seu.obj$majorID_sub <- Idents(seu.obj)
-
 seu.obj <- subset(seu.obj, subset = majorID_sub == "ILC2")
-
 seu.obj$majorID_sub <- droplevels(Idents(seu.obj))
 ct.l3 <- c(ct.l3,seu.obj$majorID_sub)
 
@@ -118,7 +111,6 @@ seu.obj$clusterID_sub <- as.factor(ifelse(seu.obj$clusterID_sub == "10",
                                          )
                                   )
 table(seu.obj$clusterID_sub)
-
 #stash new cell idents
 Idents(seu.obj) <- "clusterID_sub"
 seu.obj <- RenameIdents(seu.obj, c("0" = "CD8_eff", "1" = "CD8_eff", 
@@ -132,7 +124,6 @@ seu.obj <- RenameIdents(seu.obj, c("0" = "CD8_eff", "1" = "CD8_eff",
                        )
 seu.obj$majorID_sub_noILC <- Idents(seu.obj)
 ct.l3 <- c(ct.l3,seu.obj$majorID_sub_noILC)
-
 
 #load in processed allCells data again... to add new metadata
 seu.obj <- readRDS("/pl/active/dow_lab/dylan/k9_duod_scRNA/analysis/output/s3/230816_duod_h3c4_NoIntrons_res1.3_dims40_dist0.3_neigh50_S3.rds")
@@ -151,16 +142,11 @@ seu.obj <- RenameIdents(seu.obj, c("tcell" = "T cell", "epithelial" = "Epithelia
                                    "myeloid" = "Myeloid", "bcell" = "B cell",
                                    "cycling" = "Cycling T cell", "mast" = "Mast cell", "plasma" = "Plasma cell")
                        )
-
 seu.obj$majorID_pertyName <- Idents(seu.obj)
-
-seu.obj <- AddMetaData(seu.obj, metadata = ct.l3, col.name = "celltype.l3")
-
 seu.obj$celltype.l3 <- as.factor(ifelse(is.na(seu.obj$celltype.l3), "remove", as.character(seu.obj$celltype.l3)))
 seu.obj <- subset(seu.obj, invert = T,
                   subset = celltype.l3 == "remove"
                  )
-
 seu.obj$celltype.l3 <- droplevels(seu.obj$celltype.l3)
 saveRDS(seu.obj, "./output/s3/canine_duodenum_annotated.rds")
 
@@ -193,6 +179,8 @@ ggsave(paste("./output/", outName, "/", subname,"/",outName, "_QC_feats.png", se
 
 
 ### Supp data - run FindAllMarkers on major and high-res cell types
+
+#run on major ID
 saveName <- "240128_allCells_duod_h3c4_NoIntrons_2500"
 vilnPlots(seu.obj = seu.obj, groupBy = "majorID_pertyName", numOfFeats = 24, outName = saveName,
                      outDir = paste0("./output/viln/",outName,"/"), outputGeneList = T, filterOutFeats = c("^MT-", "^RPL", "^RPS"), returnViln = F
@@ -204,8 +192,7 @@ cluster.markers <- read.csv("./output/viln/allCells/240128_allCells_duod_h3c4_No
 write.csv(cluster.markers[ ,c(7,8,2:6)] %>% left_join(surface.markers, by = c("gene" = "UniProt.gene")),
           file = "./output/supplementalData/supplemental_data_1.csv", row.names = F)
 
-
-
+#run on high-res dataset
 saveName <- "240128_allCells_duod_h3c4_NoIntrons_2500"
 vilnPlots(seu.obj = seu.obj, groupBy = "celltype.l3", numOfFeats = 24, outName = saveName,
                      outDir = paste0("./output/viln/",outName,"/"), outputGeneList = T, filterOutFeats = c("^MT-", "^RPL", "^RPS"), returnViln = F
@@ -213,7 +200,7 @@ vilnPlots(seu.obj = seu.obj, groupBy = "celltype.l3", numOfFeats = 24, outName =
 
 #export surface marker data with finaallmarkers
 surface.markers <- read.csv("./surface_master.csv")[ ,c("UniProt.gene", "UniProt.description", "Surfaceome.Label", "Surfaceome.Label.Source")] %>% filter(!duplicated(UniProt.gene))
-cluster.markers <- read.csv("./output/viln/allCells/231204_allCells_duod_h3c4_NoIntrons_2500_gene_list.csv")
+cluster.markers <- read.csv("./output/viln/allCells/240128_allCells_duod_h3c4_NoIntrons_2500_gene_list.csv")
 write.csv(cluster.markers[ ,c(7,8,2:6)] %>% left_join(surface.markers, by = c("gene" = "UniProt.gene")),
           file = "./output/supplementalData/supplemental_data_2.csv", row.names = F)
 
@@ -236,7 +223,6 @@ pi <- DimPlot(seu.obj,
               reduction = "umap", 
               group.by = "celltype.l3",
               pt.size = 0.25,
-            #  cols = colz.df$V1,
               label = T,
               label.box = T,
               shuffle = TRUE,
@@ -245,7 +231,7 @@ pi <- DimPlot(seu.obj,
 p <- formatUMAP(plot = pi) + NoLegend() + theme(plot.title = element_text(size = 18, vjust = 1),
                                                 axis.title = element_blank(),
                                                 panel.border = element_blank()) + ggtitle("Annotated canine duodenum atlas")
-ggsave(paste("./output/", outName, "/", outName, "_ctl3_UMAP.png", sep = ""), width = 7, height = 7)
+ggsave(paste("./output/", outName, "/", outName, "_sup1a.png", sep = ""), width = 7, height = 7)
 
 
 ### Fig 1a - create UMAP by major cell types
@@ -256,34 +242,12 @@ pi <- DimPlot(seu.obj,
               pt.size = 0.25,
               label = T,
               label.box = T
- )
-p <- cusLabels(plot = pi, shape = 21, size = 10, textSize = 6, alpha = 0.8, labCol = "black") + NoLegend() + theme(axis.title = element_blank(),
-                                               panel.border = element_blank(),
-                                              plot.margin = unit(c(-7, -7, -7, -7), "pt"))
-
-axes <- ggplot() + labs(x = "UMAP1", y = "UMAP2") + 
-theme(axis.line = element_line(colour = "black", 
-                               arrow = arrow(angle = 30, length = unit(0.1, "inches"),
-                                             ends = "last", type = "closed"),
-                              ),
-      axis.title.y = element_text(colour = "black", size = 20),
-      axis.title.x = element_text(colour = "black", size = 20),
-      panel.border = element_blank(),
-      panel.background = element_rect(fill = "transparent",colour = NA),
-      plot.background = element_rect(fill = "transparent",colour = NA),
-      panel.grid.major = element_blank(), 
-      panel.grid.minor = element_blank()
-     )
-
-pi <- p + inset_element(axes,left= 0,
-  bottom = 0,
-  right = 0.25,
-  top = 0.25,
-                       align_to = "full")
+ ) + NoLegend()
+p <- cusLabels(plot = pi, shape = 21, size = 10, textSize = 6, alpha = 0.8, labCol = "black", smallAxes = T)
 ggsave(paste("./output/", outName,  "/", subname,"/", outName, "_fig1a.png", sep = ""), width = 7, height = 7)
 
 
-### Fig supp - reference map using PBMC data
+### Fig supp 1b- reference map using PBMC data
 reference <- readRDS(file = "../../k9_PBMC_scRNA/analysis/output/s3/final_dataSet_HvO.rds")
 reference[['integrated']] <- as(object = reference[['integrated']] , Class = "SCTAssay")
 
@@ -320,13 +284,14 @@ ggsave(paste("./output/", outName,"/",outName, "_umap_Predicted_PBMC.png", sep =
 gc()
 
 
-### Fig supp - reference map using human epitheial data
-reference <- MuDataSeurat::ReadH5AD("/pl/active/dow_lab/dylan/k9_duod_scRNA/analysis/epi_log_counts02_v2.h5ad")
+### Fig supp 2c - reference map using human epitheial data
+reference <- MuDataSeurat::ReadH5AD("./epi_log_counts02_v2.h5ad")
 
+#prep ref
 reference <- SCTransform(reference, verbose = FALSE)
 reference <- RunPCA(reference)
-# DefaultAssay(reference) <- "integrated"
 
+#map data
 anchors <- FindTransferAnchors(
     reference = reference,
     query = seu.obj,
@@ -335,6 +300,7 @@ anchors <- FindTransferAnchors(
     dims= 1:50 #dims= 1:2
 )
 
+#transfer labels
 predictions <- TransferData(anchorset = anchors, refdata = reference$annotation,
     dims = 1:50)
 seu.obj <- AddMetaData(seu.obj, metadata = predictions)
@@ -357,19 +323,19 @@ ggsave(paste("./output/", outName, "/", subname,"/",outName, "_umap_Predicted_hu
 
 gc()
 
-### Fig supp - reference map using human t cell data
-reference <- MuDataSeurat::ReadH5AD("/pl/active/dow_lab/dylan/k9_duod_scRNA/analysis/Tcell_log_counts02_v2.h5ad")
+### Fig supp 1d - reference map using human t cell data
+reference <- MuDataSeurat::ReadH5AD("./Tcell_log_counts02_v2.h5ad")
 
+#prep ref
 reference <- SCTransform(reference, verbose = FALSE)
 reference <- RunPCA(reference)
-# DefaultAssay(reference) <- "integrated"
 
 anchors <- FindTransferAnchors(
     reference = reference,
     query = seu.obj,
     normalization.method = "SCT",
-    reference.reduction = "pca", #reference.reduction = "umap",
-    dims= 1:50 #dims= 1:2
+    reference.reduction = "pca", 
+    dims= 1:50
 )
 
 predictions <- TransferData(anchorset = anchors, refdata = reference$annotation,
@@ -419,21 +385,18 @@ features <- c("PTPRC", "CD3G", "IL7R",
               "JCHAIN", "TOP2A", "CENPF",
               "KIT", "PAX5", "MS4A1"
              )
-
 titlez <- c("PTPRC (CD45)", "CD3G", "IL7R", 
               "SI", "MUC13", "ANPEP", 
               "COL1A1", "AIF1 (Iba1)", "LYZ",
               "JCHAIN", "TOP2A", "CENPF",
               "KIT", "PAX5", "MS4A1 (CD20)"
            )
-
 colz <- c("black", "#FF89B3", "#FF89B3", 
           "#C89504", "#C89504", "#C89504",
           "#C89504", "#00ABFD", "#00ABFD",
           "#B983FF", "#FA7476", "#FA7476", 
           "#0A9B9F", "#9B8EFF", "#9B8EFF"
          )
-
 p <- prettyFeats(seu.obj = seu.obj, nrow = 5, ncol = 3, features = features, color = colz, order = T, titles = titlez, returnPlots = F, title.size = 16, pt.size = 0.00000001, min.cutoff = "q10", noLegend = T) 
 ggsave(paste("./output/", outName, "/", subname,"/",outName, "_fig1c.png", sep = ""), width = 9, height = 15)
 
@@ -443,7 +406,6 @@ Idents(seu.obj) <- "cellSource"
 set.seed(12)
 seu.obj.ds <- subset(x = seu.obj, downsample = min(table(seu.obj@meta.data$cellSource)))
 seu.obj.ds$majorID_pertyName <- factor(seu.obj.ds$majorID_pertyName, levels = rev(c("Epithelial","T cell","Myeloid","Plasma cell","B cell","Mast cell","Cycling T cell")))
-
 p <- stackedBar(seu.obj = seu.obj.ds, downSampleBy = "cellSource", groupBy = "name2", clusters = "majorID_pertyName") +
 scale_fill_manual(labels = levels(seu.obj$name2), 
                   values = levels(seu.obj$colz)) + theme(axis.title.y = element_blank(),
@@ -453,7 +415,7 @@ scale_fill_manual(labels = levels(seu.obj$name2),
 ggsave(paste("./output/", outName,"/", subname, "/",outName, "_fig1d.png", sep = ""), width = 5, height = 4)
 
 
-### Fig supp 1e: umap by sample
+### Fig supp 2a: umap by sample
 Idents(seu.obj) <- "cellSource"
 set.seed(12)
 seu.obj.ds <- subset(x = seu.obj, downsample = min(table(seu.obj@meta.data$cellSource)))
@@ -471,22 +433,22 @@ p <- formatUMAP(pi) + labs(colour="") + theme(axis.title = element_blank(),
                                                   legend.position = "top", 
                                               legend.justification = "center",
                                               legend.direction = "horizontal",legend.title=element_text(size=12)) + guides(colour = guide_legend(nrow = 1, override.aes = list(size = 4)))
-ggsave(paste("./output/", outName, "/", subname, "/", outName, "_supp1e.png", sep = ""), width =7, height = 7)
+ggsave(paste("./output/", outName, "/", subname, "/", outName, "_sup2a.png", sep = ""), width =7, height = 7)
 
 
-### Fig supp 1e: stats by cie vs healthy
+### Fig supp 2b: stats by cie vs healthy
 freqy <- freqPlots(seu.obj, method = 2, nrow= 2, groupBy = "majorID_pertyName", legTitle = "Cell source",refVal = "name2", showPval = T,
               namez = "name2", 
               colz = "colz"
               )
-
-ggsave(paste("./output/", outName, "/", subname, "/",outName, "_supp1f.png", sep = ""), width = 8, height = 6)
+ggsave(paste("./output/", outName, "/", subname, "/",outName, "_supp2b.png", sep = ""), width = 8, height = 6)
 
 #run levene test to ensure proper test was used
 res.ftest <- lapply(levels(freqy$data$majorID_pertyName), function(x){
     data.df <- freqy$data[freqy$data$majorID_pertyName ==  x, ]
-    leveneTest(freq ~ cellSource, data = data.df)
+    car::leveneTest(freq ~ cellSource, data = data.df)
 })
+res.ftest
                
 
 ### Fig 1e: dge analysis all cells
@@ -501,57 +463,51 @@ linDEG(seu.obj = seu.obj, threshold = 1, thresLine = F, groupBy = "allCells", co
 
 ### Fig extra: dge analysis by major cell types
 linDEG(seu.obj = seu.obj, groupBy = "majorID_pertyName", comparision = "cellSource", contrast= c("CIE","Healthy"),
-       outDir = paste0("./output/", outName,"/", subname,"/"), outName = "majorID_pertyName", 
+       outDir = paste0("./output/", outName,"/", subname,"/linDEG/"), outName = "majorID_pertyName", 
        pValCutoff = 0.01, saveGeneList = T, addLabs = "", labsHide = "^ENSCAFG"
                   )
 
 
-### Fig extra: upset plot of dge results by major cell types
-files <- list.files(path = "/pl/active/dow_lab/dylan/k9_duod_scRNA/analysis/output/allCells/n3n4/linDEG", pattern=".csv", all.files=FALSE,
+### Fig 1f: heatmap of dge results by major cell types
+files <- list.files(path = "./output/allCells/n3n4/linDEG/", pattern=".csv", all.files=FALSE,
                         full.names=T)
-
 df.list <- lapply(files, read.csv, header = T)
-
-# feats.list <- lapply(df.list, function(x){feats <- x %>% filter(avg_log2FC > 0) %>% select(X)})
-feats.list <- lapply(df.list, function(x){feats <- x %>% filter(avg_log2FC > 0, p_val_adj < 0.01) %>% select(X)})
-feats.list <- lapply(df.list, function(x){feats <- x %>% filter(avg_log2FC < 0, p_val_adj < 0.01) %>% select(X)})
-feats.list <- lapply(df.list, function(x){feats <- x %>% filter(p_val_adj < 0.01) %>% select(X)})
+# feats.list <- lapply(df.list, function(x){feats <- x %>% filter(avg_log2FC > 0, p_val_adj < 0.01) %>% select(X)})
+# feats.list <- lapply(df.list, function(x){feats <- x %>% filter(avg_log2FC < 0, p_val_adj < 0.01) %>% select(X)})
+# feats.list <- lapply(df.list, function(x){feats <- x %>% filter(p_val_adj < 0.01) %>% select(X)})
 
 
 
-library(UpSetR)
-upSet.df <- as.data.frame(unique(c(feats.list[1][[1]]$X,feats.list[2][[1]]$X,feats.list[3][[1]]$X,feats.list[4][[1]]$X,feats.list[5][[1]]$X,feats.list[5][[1]]$X,feats.list[6][[1]]$X,feats.list[7][[1]]$X)))
-colnames(upSet.df) <- "gene"
+# library(UpSetR)
+# upSet.df <- as.data.frame(unique(c(feats.list[1][[1]]$X,feats.list[2][[1]]$X,feats.list[3][[1]]$X,feats.list[4][[1]]$X,feats.list[5][[1]]$X,feats.list[5][[1]]$X,feats.list[6][[1]]$X,feats.list[7][[1]]$X)))
+# colnames(upSet.df) <- "gene"
 
-upSet.df$`B cell` <- as.integer(ifelse(upSet.df$gene %in% feats.list[1][[1]]$X, 1, 0))
-upSet.df$`Cycling T cell` <- as.integer(ifelse(upSet.df$gene %in% feats.list[2][[1]]$X, 1, 0))
-upSet.df$Epithelial <- as.integer(ifelse(upSet.df$gene %in% feats.list[3][[1]]$X, 1, 0))
-upSet.df$`Mast cell` <- as.integer(ifelse(upSet.df$gene %in% feats.list[4][[1]]$X, 1, 0))
-upSet.df$Myeloid <- as.integer(ifelse(upSet.df$gene %in% feats.list[5][[1]]$X, 1, 0))
-upSet.df$`Plasma cell` <- as.integer(ifelse(upSet.df$gene %in% feats.list[6][[1]]$X, 1, 0))
-upSet.df$`T cell` <- as.integer(ifelse(upSet.df$gene %in% feats.list[7][[1]]$X, 1, 0))
+# upSet.df$`B cell` <- as.integer(ifelse(upSet.df$gene %in% feats.list[1][[1]]$X, 1, 0))
+# upSet.df$`Cycling T cell` <- as.integer(ifelse(upSet.df$gene %in% feats.list[2][[1]]$X, 1, 0))
+# upSet.df$Epithelial <- as.integer(ifelse(upSet.df$gene %in% feats.list[3][[1]]$X, 1, 0))
+# upSet.df$`Mast cell` <- as.integer(ifelse(upSet.df$gene %in% feats.list[4][[1]]$X, 1, 0))
+# upSet.df$Myeloid <- as.integer(ifelse(upSet.df$gene %in% feats.list[5][[1]]$X, 1, 0))
+# upSet.df$`Plasma cell` <- as.integer(ifelse(upSet.df$gene %in% feats.list[6][[1]]$X, 1, 0))
+# upSet.df$`T cell` <- as.integer(ifelse(upSet.df$gene %in% feats.list[7][[1]]$X, 1, 0))
 
-# Plot sample distance heatmap with ComplexHeatmap
-png(file = paste0("./output/", outName,"/", subname,"/",subname, "_upSet.png"), width=2200, height=2000, res=400)
-par(mfcol=c(1,1))     
-p <- upset(upSet.df, sets = colnames(upSet.df)[-1], cutoff = NULL,  nintersects = 7,empty.intersections = T)
-p
-dev.off()
+# # Plot sample distance heatmap with ComplexHeatmap
+# png(file = paste0("./output/", outName,"/", subname,"/",subname, "_upSet.png"), width=2200, height=2000, res=400)
+# par(mfcol=c(1,1))     
+# p <- upset(upSet.df, sets = colnames(upSet.df)[-1], cutoff = NULL,  nintersects = 7,empty.intersections = T)
+# p
+# dev.off()
 
 
 cnts_mat <- do.call(rbind, df.list) %>% mutate(direction = ifelse(avg_log2FC > 0, "Up", "Down")) %>% group_by(cellType,direction) %>% summarize(nRow = n()) %>% pivot_wider(names_from = cellType, values_from = nRow) %>% as.matrix() %>% t()
-
 colnames(cnts_mat) <- cnts_mat[1,]
 cnts_mat <- cnts_mat[-c(1),]
 class(cnts_mat) <- "numeric"
-
 
 #order by number of total # of DEGs
 orderList <- rev(rownames(cnts_mat)[order(rowSums(cnts_mat))])
 cnts_mat <- cnts_mat[match(orderList, rownames(cnts_mat)),]        
        
-library(circlize)
-png(file = paste0("./output/", outName, "/", outName, "deg_heatmap.png"), width=1500, height=2000, res=400)
+png(file = paste0("./output/", outName, "/", subname, "/",outName, "_fig1f.png"), width=1500, height=2000, res=400)
 par(mfcol=c(1,1))         
 ht <- Heatmap(cnts_mat,#name = "mat", #col = col_fun,
               name = "# of DEGs",
@@ -573,9 +529,8 @@ draw(ht, padding = unit(c(2, 12, 2, 5), "mm"),show_heatmap_legend = FALSE)
 dev.off()
 
 
-
-### Fig extra: gsea of the DGE results using majorID_sub_big
-df <- read.csv("./output/allCells/n3n4/linDEG/majorID_pertyName_Mast cellgeneList.csv")
+### Fig sup 2c: gsea of the DGE results using majorID_sub_big
+df <- read.csv("./output/allCells/n3n4/linDEG/majorID_pertyName_Mast_cell_geneList.csv")
 upGenes <- df %>% filter(p_val_adj < 0.01 & avg_log2FC > 0) %>% pull(X)
 dwnGenes <- df %>% filter(p_val_adj < 0.01 & avg_log2FC < 0) %>% pull(X)
 p <- plotGSEA(geneList = upGenes, geneListDwn = dwnGenes, category = "C5", subcategory = "GO:BP", 
@@ -583,10 +538,8 @@ p <- plotGSEA(geneList = upGenes, geneListDwn = dwnGenes, category = "C5", subca
 
 minVal <- -5
 maxVal <- 7
-
 pi <- p + scale_x_continuous(limits = c(minVal, maxVal), name = "Signed log10(padj)") + 
     theme(axis.title=element_text(size = 16)) + 
-
     annotate("segment", x = -0.1, 
              y = 17, 
              xend = minVal, 
@@ -594,14 +547,12 @@ pi <- p + scale_x_continuous(limits = c(minVal, maxVal), name = "Signed log10(pa
              lineend = "round", linejoin = "bevel", linetype ="solid", colour = "blue",
              size = 1, arrow = arrow(length = unit(0.1, "inches"))
             ) + 
-
     annotate(geom = "text", x = (minVal-0.1*1.5)/2-0.1*1.5, 
              y = 18,
              label = "Repressed in CIE",
              hjust = 0.5,
              vjust = 1.5,
              size = 5) +
-
     annotate("segment", x = 0.1, 
              y = 17, 
              xend = maxVal,
@@ -609,15 +560,15 @@ pi <- p + scale_x_continuous(limits = c(minVal, maxVal), name = "Signed log10(pa
              lineend = "round", linejoin = "bevel", linetype ="solid", colour = "red",
              size = 1, arrow = arrow(length = unit(0.1, "inches"))
             ) + 
-
     annotate(geom = "text", x = (maxVal-0.1*1.5)/2+0.1*1.5, 
              y = 18,
              label = "Induced in CIE",
              hjust = 0.5,
              vjust = 1.5,
              size = 5)
+ggsave(paste("./output/", outName, "/", subname, "/", outName, "_sup2c.png", sep = ""), width = 10, height = 7)
 
 
-ggsave(paste("./output/", outName, "/", subName, "/", outName, "_gseaMast.png", sep = ""), width = 10, height = 7)
-
-
+########################################### <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+#######   end all cells analysis   ######## <<<<<<<<<<<<<<
+########################################### <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
