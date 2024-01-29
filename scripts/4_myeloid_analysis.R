@@ -126,7 +126,7 @@ vilnPlots(seu.obj = seu.obj, groupBy = "majorID_sub", numOfFeats = 24, outName =
 
 #append with surfacome data
 surface.markers <- read.csv("./surface_master.csv")[ ,c("UniProt.gene", "UniProt.description", "Surfaceome.Label", "Surfaceome.Label.Source")] %>% filter(!duplicated(UniProt.gene))
-cluster.markers <- read.csv("./output/viln/myeloid/231022_myeloid_duod_h3c4_NoIntrons_2500_gene_list.csv")
+cluster.markers <- read.csv("./output/viln/myeloid/240128_myeloid_duod_h3c4_NoIntrons_2500_gene_list.csv")
 write.csv(cluster.markers[ ,c(7,8,2:6)] %>% left_join(surface.markers, by = c("gene" = "UniProt.gene")),
           file = "./output/supplementalData/supplemental_data_4.csv", row.names = F)
 
