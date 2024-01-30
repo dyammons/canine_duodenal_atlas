@@ -456,15 +456,18 @@ seu.obj$allCells <- "DGE analysis of all cells"
 seu.obj$allCells <- as.factor(seu.obj$allCells)
 linDEG(seu.obj = seu.obj, threshold = 1, thresLine = F, groupBy = "allCells", comparision = "cellSource", contrast = c("CIE", "Healthy"),
        outDir = paste0("./output/", outName,"/", subname,"/"), 
-       outName = "all_cells", cluster = NULL, labCutoff = 15, noTitle = F,
-                   colUp = "red", colDwn = "blue", subtitle = T, returnUpList = F, returnDwnList = F, forceReturn = F, useLineThreshold = F, pValCutoff = 0.01, saveGeneList = T, addLabs = ""
+       outName = "all_cells", cluster = NULL, labCutoff = 10, noTitle = F, logfc.threshold = 0.58, pValCutoff = 0.01,
+                   colUp = "red", colDwn = "blue", subtitle = T, returnUpList = F, returnDwnList = F, forceReturn = F, useLineThreshold = F, saveGeneList = T, addLabs = ""
                   )
+
+df <- read.csv(file = "./output/allCells/n3n4/all_cells_DGE_analysis_of_all_cells_geneList.csv")
+df %>% mutate(direction = ifelse(avg_log2FC > 0, "Up", "Down")) %>% group_by(cellType,direction) %>% summarize(nRow = n())
 
 
 ### Fig extra: dge analysis by major cell types
 linDEG(seu.obj = seu.obj, groupBy = "majorID_pertyName", comparision = "cellSource", contrast= c("CIE","Healthy"),
        outDir = paste0("./output/", outName,"/", subname,"/linDEG/"), outName = "majorID_pertyName", 
-       pValCutoff = 0.01, saveGeneList = T, addLabs = "", labsHide = "^ENSCAFG"
+       pValCutoff = 0.01, logfc.threshold = 0.58, saveGeneList = T, addLabs = "",
                   )
 
 
@@ -472,33 +475,8 @@ linDEG(seu.obj = seu.obj, groupBy = "majorID_pertyName", comparision = "cellSour
 files <- list.files(path = "./output/allCells/n3n4/linDEG/", pattern=".csv", all.files=FALSE,
                         full.names=T)
 df.list <- lapply(files, read.csv, header = T)
-# feats.list <- lapply(df.list, function(x){feats <- x %>% filter(avg_log2FC > 0, p_val_adj < 0.01) %>% select(X)})
-# feats.list <- lapply(df.list, function(x){feats <- x %>% filter(avg_log2FC < 0, p_val_adj < 0.01) %>% select(X)})
-# feats.list <- lapply(df.list, function(x){feats <- x %>% filter(p_val_adj < 0.01) %>% select(X)})
 
-
-
-# library(UpSetR)
-# upSet.df <- as.data.frame(unique(c(feats.list[1][[1]]$X,feats.list[2][[1]]$X,feats.list[3][[1]]$X,feats.list[4][[1]]$X,feats.list[5][[1]]$X,feats.list[5][[1]]$X,feats.list[6][[1]]$X,feats.list[7][[1]]$X)))
-# colnames(upSet.df) <- "gene"
-
-# upSet.df$`B cell` <- as.integer(ifelse(upSet.df$gene %in% feats.list[1][[1]]$X, 1, 0))
-# upSet.df$`Cycling T cell` <- as.integer(ifelse(upSet.df$gene %in% feats.list[2][[1]]$X, 1, 0))
-# upSet.df$Epithelial <- as.integer(ifelse(upSet.df$gene %in% feats.list[3][[1]]$X, 1, 0))
-# upSet.df$`Mast cell` <- as.integer(ifelse(upSet.df$gene %in% feats.list[4][[1]]$X, 1, 0))
-# upSet.df$Myeloid <- as.integer(ifelse(upSet.df$gene %in% feats.list[5][[1]]$X, 1, 0))
-# upSet.df$`Plasma cell` <- as.integer(ifelse(upSet.df$gene %in% feats.list[6][[1]]$X, 1, 0))
-# upSet.df$`T cell` <- as.integer(ifelse(upSet.df$gene %in% feats.list[7][[1]]$X, 1, 0))
-
-# # Plot sample distance heatmap with ComplexHeatmap
-# png(file = paste0("./output/", outName,"/", subname,"/",subname, "_upSet.png"), width=2200, height=2000, res=400)
-# par(mfcol=c(1,1))     
-# p <- upset(upSet.df, sets = colnames(upSet.df)[-1], cutoff = NULL,  nintersects = 7,empty.intersections = T)
-# p
-# dev.off()
-
-
-cnts_mat <- do.call(rbind, df.list) %>% mutate(direction = ifelse(avg_log2FC > 0, "Up", "Down")) %>% group_by(cellType,direction) %>% summarize(nRow = n()) %>% pivot_wider(names_from = cellType, values_from = nRow) %>% as.matrix() %>% t()
+cnts_mat <- do.call(rbind, df.list) %>% filter(p_val_adj < 0.01, abs(avg_log2FC) > 0.58 ) %>% mutate(direction = ifelse(avg_log2FC > 0, "Up", "Down")) %>% group_by(cellType,direction) %>% summarize(nRow = n()) %>% pivot_wider(names_from = cellType, values_from = nRow) %>% as.matrix() %>% t()
 colnames(cnts_mat) <- cnts_mat[1,]
 cnts_mat <- cnts_mat[-c(1),]
 class(cnts_mat) <- "numeric"
