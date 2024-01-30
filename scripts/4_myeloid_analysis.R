@@ -347,7 +347,7 @@ seu.obj$allCells <- "DGE analysis of myeloid cells"
 seu.obj$allCells <- as.factor(seu.obj$allCells)
 linDEG(seu.obj = seu.obj, groupBy = "allCells", comparision = "cellSource", outDir = paste0("./output/", outName,"/"), 
        outName = "fig2c", labCutoff = 10, contrast = c("CIE", "Healthy"),
-       subtitle = T, pValCutoff = 0.01, saveGeneList = T, addLabs = ""
+       subtitle = T, pValCutoff = 0.01, logfc.threshold = 0.58, saveGeneList = T, addLabs = ""
       )
 
 
@@ -364,7 +364,7 @@ ggsave(paste("./output/", outName, "/", outName, "_supp3e.png", sep = ""), width
 ### Fig extra - deg between cie and healthy within each cluster
 linDEG(seu.obj = seu.obj, threshold = 1, thresLine = F, groupBy = "majorID_sub", comparision = "cellSource", contrast = c("CIE", "Healthy"),
        outDir = paste0("./output/", outName,"/linDEG/"), outName = "myeloid", cluster = NULL, labCutoff = 10, noTitle = F,
-       colUp = "red", colDwn = "blue", subtitle = T, returnUpList = F, returnDwnList = F, forceReturn = F, useLineThreshold = F, pValCutoff = 0.01, saveGeneList = T, addLabs = ""
+       colUp = "red", colDwn = "blue", subtitle = T, returnUpList = F, returnDwnList = F, forceReturn = F, useLineThreshold = F, pValCutoff = 0.01, logfc.threshold = 0.58, saveGeneList = T, addLabs = ""
                   )
 
 

@@ -456,12 +456,9 @@ seu.obj$allCells <- "DGE analysis of all cells"
 seu.obj$allCells <- as.factor(seu.obj$allCells)
 linDEG(seu.obj = seu.obj, threshold = 1, thresLine = F, groupBy = "allCells", comparision = "cellSource", contrast = c("CIE", "Healthy"),
        outDir = paste0("./output/", outName,"/", subname,"/"), 
-       outName = "all_cells", cluster = NULL, labCutoff = 10, noTitle = F, logfc.threshold = 0.58, pValCutoff = 0.01,
+       outName = "all_cells", cluster = NULL, labCutoff = 10, noTitle = F, pValCutoff = 0.01, logfc.threshold = 0.58,
                    colUp = "red", colDwn = "blue", subtitle = T, returnUpList = F, returnDwnList = F, forceReturn = F, useLineThreshold = F, saveGeneList = T, addLabs = ""
                   )
-
-df <- read.csv(file = "./output/allCells/n3n4/all_cells_DGE_analysis_of_all_cells_geneList.csv")
-df %>% mutate(direction = ifelse(avg_log2FC > 0, "Up", "Down")) %>% group_by(cellType,direction) %>% summarize(nRow = n())
 
 
 ### Fig extra: dge analysis by major cell types
@@ -475,8 +472,8 @@ linDEG(seu.obj = seu.obj, groupBy = "majorID_pertyName", comparision = "cellSour
 files <- list.files(path = "./output/allCells/n3n4/linDEG/", pattern=".csv", all.files=FALSE,
                         full.names=T)
 df.list <- lapply(files, read.csv, header = T)
-
-cnts_mat <- do.call(rbind, df.list) %>% filter(p_val_adj < 0.01, abs(avg_log2FC) > 0.58 ) %>% mutate(direction = ifelse(avg_log2FC > 0, "Up", "Down")) %>% group_by(cellType,direction) %>% summarize(nRow = n()) %>% pivot_wider(names_from = cellType, values_from = nRow) %>% as.matrix() %>% t()
+# %>% filter(p_val_adj < 0.01, abs(avg_log2FC) > 0.58 )
+cnts_mat <- do.call(rbind, df.list)  %>% mutate(direction = ifelse(avg_log2FC > 0, "Up", "Down")) %>% group_by(cellType,direction) %>% summarize(nRow = n()) %>% pivot_wider(names_from = cellType, values_from = nRow) %>% as.matrix() %>% t()
 colnames(cnts_mat) <- cnts_mat[1,]
 cnts_mat <- cnts_mat[-c(1),]
 class(cnts_mat) <- "numeric"
@@ -509,8 +506,8 @@ dev.off()
 
 ### Fig sup 2c: gsea of the DGE results using majorID_sub_big
 df <- read.csv("./output/allCells/n3n4/linDEG/majorID_pertyName_Mast_cell_geneList.csv")
-upGenes <- df %>% filter(p_val_adj < 0.01 & avg_log2FC > 0) %>% pull(X)
-dwnGenes <- df %>% filter(p_val_adj < 0.01 & avg_log2FC < 0) %>% pull(X)
+upGenes <- df %>% filter(avg_log2FC > 0) %>% pull(X)
+dwnGenes <- df %>% filter(avg_log2FC < 0) %>% pull(X)
 p <- plotGSEA(geneList = upGenes, geneListDwn = dwnGenes, category = "C5", subcategory = "GO:BP", 
               upCol = "blue", dwnCol = "red", size = 3)
 
