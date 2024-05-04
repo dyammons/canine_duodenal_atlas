@@ -1,7 +1,8 @@
 #!/usr/bin/Rscript
 
 #load custom functions & packages
-source("/pl/active/dow_lab/dylan/repos/K9-PBMC-scRNAseq/analysisCode/customFunctions.R")
+# source("/pl/active/dow_lab/dylan/repos/K9-PBMC-scRNAseq/analysisCode/customFunctions.R")
+source("/pl/active/dow_lab/dylan/repos/scrna-seq/analysis-code/customFunctions.R")
 library(circlize)
 
 ### Analysis note: 
@@ -278,6 +279,88 @@ p <- prettyFeats(seu.obj = seu.obj, nrow = 2, ncol = 5, features = features,
                  color = "black", order = F, pt.size = 0.0000001, title.size = 16, noLegend = T)
 ggsave(paste("./output/", outName, "/",outName, "_fig3b.png", sep = ""), width = 12.5, height = 5)
 
+
+### Fig 3c - DEG between resident and Non-resident -- this generated supplemental_data_5
+idents.1 = "Non-resident"
+idents.2 = "Tissue resident"
+groupBy = "majorID_sub"
+p_volc <- btwnClusDEG(seu.obj = seu.obj, groupBy = groupBy, idents.1 = idents.1, idents.2 = idents.2, bioRep = "name2",padj_cutoff = 0.05, lfcCut = 0.58, 
+                      minCells = 25, outDir = paste0("./output/", outName, "/"), 
+                      title = paste0(idents.1,"_vs_",idents.2), idents.1_NAME = idents.1, idents.2_NAME = idents.2, strict_lfc = T, 
+                      returnVolc = T, doLinDEG = F, paired = T, addLabs = NULL, lowFilter = T, dwnSam = F, setSeed = 24, dwnCol = "#75149D", stblCol = "grey",upCol = "#FF007F", labSize = 3.5
+                    )
+p  <- prettyVolc(plot = p_volc[[1]], rightLab = "Up in Cluster 1", leftLab = paste0("Up in Cluster 2"), arrowz = T,  rightCol = "#FF007F", leftCol = "#75149D") + labs(x = "log2(Fold change)") + NoLegend() + theme(panel.border = element_rect(color = "black",
+                                      fill = NA,
+                                      size = 2),
+                                      axis.line = element_blank())
+ggsave(gsub(" ", "_",paste("./output/", outName, "/", outName, "_", idents.1, "_V_", idents.2, ".png", sep = "")), width = 7, height = 7)
+
+
+### Use miloR to further validate
+library(miloR)
+library(BiocParallel)
+
+seu.obj$Sample <- seu.obj$name
+seu.obj$Condition <- seu.obj$cellSource
+
+runMilo <- function(seu.obj = NULL, da_design = NULL, subName = "", blocked = TRUE, ...){
+    # Convert from Seurat to sce object
+    sce <- as.SingleCellExperiment(seu.obj)
+    reducedDim(sce, "PCA") <- seu.obj@reductions$pca@cell.embeddings
+    reducedDim(sce, "UMAP") <- seu.obj@reductions$umap@cell.embeddings
+
+    # Preprocess using miloR to ID neighboorhoods
+    milo.obj <- Milo(sce)
+    milo.obj$Sample <- droplevels(factor(milo.obj$Sample))
+    milo.obj <- buildGraph(milo.obj, k = 30, d = 40)
+    milo.obj <- makeNhoods(milo.obj, prop = 0.2, k = 30, d = 40, refined = TRUE, refinement_scheme = "graph")
+    p <- plotNhoodSizeHist(milo.obj)
+    ggsave(paste0("../output/", outName, "/", outName, "_NhoodSize.png"), width = 7, height = 7)
+    
+    milo.obj <- countCells(milo.obj, meta.data = data.frame(colData(milo.obj)), samples = "Sample")
+
+    # Set up metadata
+    rownames(da_design) <- da_design$Sample
+    da_design <- da_design[colnames(nhoodCounts(milo.obj)), , drop = FALSE]
+
+    # Calc distance between neighborhoods and test for DA
+    milo.obj <- calcNhoodDistance(milo.obj, d = 40)
+    if(blocked){
+        da_results <- testNhoods(milo.obj, design = ~ Dog + Condition, design.df = da_design)
+    } else{
+        da_results <- testNhoods(milo.obj, design = ~ Condition, design.df = da_design)
+    }
+    
+    da_results %>% arrange(SpatialFDR) %>% filter(SpatialFDR < 0.1) %>% nrow()
+
+    # Plot the results (by neighborhood)
+    milo.obj <- buildNhoodGraph(milo.obj)
+    p <- plotNhoodGraphDA(milo.obj, da_results[!is.na(da_results$logFC), ],
+                          subset.nhoods=!is.na(da_results$logFC), ...)
+    ggsave(paste("../output/", outName, "/", subName, "_milo.png", sep = ""), width = 6, height = 6)
+    return(list(p, da_results))
+}
+
+# Set up metadata
+da_design <- as.data.frame(list(
+    "Sample" = factor(c("CIE_2", "CIE_3", "CIE_4", "CIE_6", "H_1", "H_2", "H_3")),
+    "Condition" = factor(c("CIE", "CIE", "CIE", "CIE", "H", "H", "H"), levels = c("H", "CIE"))
+))
+p <- runMilo(seu.obj = seu.obj, da_design = da_design, subName = "CIE_vs_H", blocked = F, alpha = 0.1)
+p0 <- p[[1]] + ggtitle("CIE versus Healthy") + theme(plot.title = element_text(hjust = 0.5)) +
+    scale_fill_gradient2(low = "blue", mid = "white", high = "red", midpoint = 0)
+ggsave(paste("../output/", outName, "/", outName, "_milo_test.png", sep = ""), width = 7, height = 7)
+
+p[[2]] %>% arrange(SpatialFDR)
+
+p <- plotNhoodGraphDA(milo.obj, p[[2]][!is.na(p[[2]]$logFC), ],
+                          subset.nhoods = !is.na(p[[2]]$logFC), alpha = 0.55)
+p0 <- p + ggtitle("CIE versus Healthy") + theme(plot.title = element_text(hjust = 0.5)) +
+    scale_fill_gradient2(low = "blue", mid = "white", high = "red", midpoint = 0)
+ggsave(paste("../output/", outName, "/", outName, "_milo_test.png", sep = ""), width = 7, height = 7)
+
+
+
 #remane idents to split the Memory subtype into their cooresponding resdent/non-resident classification
 Idents(seu.obj) <- "clusterID_sub"
 seu.obj <- RenameIdents(seu.obj, c("0" = "Tissue resident", "1" = "Tissue resident", 
@@ -353,19 +436,19 @@ idents.2 = "Tissue resident"
 groupBy = "majorID_sub_SplitMem"
 p_volc <- btwnClusDEG(seu.obj = seu.obj, groupBy = groupBy, idents.1 = idents.1, idents.2 = idents.2, bioRep = "name2",padj_cutoff = 0.05, lfcCut = 0.58, 
                       minCells = 25, outDir = paste0("./output/", outName, "/"), 
-                      title = paste0(idents.1,"_vs_",idents.2), idents.1_NAME = idents.1, idents.2_NAME = idents.2, 
+                      title = paste0(idents.1,"_vs_",idents.2), idents.1_NAME = idents.1, idents.2_NAME = idents.2, strict_lfc = T, 
                       returnVolc = T, doLinDEG = F, paired = T, addLabs = NULL, lowFilter = T, dwnSam = F, setSeed = 24, dwnCol = "#75149D", stblCol = "grey",upCol = "#FF007F", labSize = 3.5
                     )
-p  <- prettyVolc(plot = p_volc[[1]], rightLab = paste0("Up in ",idents.1), leftLab = paste0("Up in ",idents.2), arrowz = T,  rightCol = "#FF007F", leftCol = "#75149D") + labs(x = paste0("log2(FC)", idents.1, " vs ",idents.2)) + NoLegend() + theme(panel.border = element_rect(color = "black",
+p  <- prettyVolc(plot = p_volc[[1]], rightLab = "Up in T subpop 1", leftLab = paste0("Up in T subpop 2"), arrowz = T,  rightCol = "#FF007F", leftCol = "#75149D") + labs(x = "log2(Fold change)") + NoLegend() + theme(panel.border = element_rect(color = "black",
                                       fill = NA,
                                       size = 2),
                                       axis.line = element_blank())
 ggsave(gsub(" ", "_",paste("./output/", outName, "/", outName, "_", idents.1, "_V_", idents.2, ".png", sep = "")), width = 7, height = 7)
 
 
-### Fig supp 4d: gsea of the DGE results
+### Fig supp 4d: gsea of the DGE results  "", stblCol = "grey",upCol = "#FF007F"
 p <- plotGSEA(pwdTOgeneList = "./output/tcell/Non-resident_vs_Tissue_resident_all_genes.csv", category = "C5", 
-              upCol = "blue", dwnCol = "red", size = 4) 
+              upCol = "#75149D", dwnCol = "#FF007F", size = 4) 
 
 minVal <- -10
 maxVal <- 10
@@ -375,12 +458,12 @@ pi <- p + scale_x_continuous(limits = c(minVal, maxVal), name = "Signed log10(pa
              y = nrow(p$data)+1, 
              xend = minVal, 
              yend = nrow(p$data)+1, 
-             lineend = "round", linejoin = "bevel", linetype ="solid", colour = "blue",
+             lineend = "round", linejoin = "bevel", linetype ="solid", colour = "#75149D",
              size = 1, arrow = arrow(length = unit(0.1, "inches"))
             ) + 
     annotate(geom = "text", x = (minVal-0.1*1.5)/2-0.1*1.5, 
              y = nrow(p$data)+2,
-             label = "Up in Non-resident",
+             label = "Up in tissue resident",
              hjust = 0.5,
              vjust = 1.5,
              size = 5) +
@@ -388,12 +471,12 @@ pi <- p + scale_x_continuous(limits = c(minVal, maxVal), name = "Signed log10(pa
              y = nrow(p$data)+1, 
              xend = maxVal,
              yend = nrow(p$data)+1,
-             lineend = "round", linejoin = "bevel", linetype ="solid", colour = "red",
+             lineend = "round", linejoin = "bevel", linetype ="solid", colour = "#FF007F",
              size = 1, arrow = arrow(length = unit(0.1, "inches"))
             ) + 
     annotate(geom = "text", x = (maxVal-0.1*1.5)/2+0.1*1.5, 
              y = nrow(p$data)+2,
-             label = "Up in tissue resident",
+             label = "Up in Non-resident",
              hjust = 0.5,
              vjust = 1.5,
              size = 5)
@@ -711,7 +794,7 @@ expression$anno_merge <- seu.obj@meta.data[rownames(expression),]$type
 #get cell type expression averages - do clus avg expression by sample
 clusAvg_expression <- expression %>% group_by(anno_merge) %>% summarise(across(where(is.numeric), mean)) %>% as.data.frame()
 rownames(clusAvg_expression) <- clusAvg_expression$anno_merge
-clusAvg_expression$anno_merge <- NULL     
+clusAvg_expression$anno_merge <- NULL
 
 df <- rownames(clusAvg_expression) %>% as.data.frame()
 colnames(df) <- "type"
