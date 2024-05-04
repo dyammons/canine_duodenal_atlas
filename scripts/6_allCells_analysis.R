@@ -1,7 +1,8 @@
 #!/usr/bin/Rscript
 
 #load custom functions & packages
-source("/pl/active/dow_lab/dylan/repos/K9-PBMC-scRNAseq/analysisCode/customFunctions.R")
+# source("/pl/active/dow_lab/dylan/repos/K9-PBMC-scRNAseq/analysisCode/customFunctions.R")
+source("/pl/active/dow_lab/dylan/repos/scrna-seq/analysis-code/customFunctions.R")
 library(circlize)
 
 ### Analysis note: 
@@ -171,6 +172,33 @@ table(Idents(seu.obj))
 seu.obj$clusterID_final <- Idents(seu.obj)
 
 
+pi <- DimPlot(seu.obj,
+        reduction = "umap", 
+        cols = "grey",
+        pt.size = 0.5,
+        label = F,
+        cells.highlight = WhichCells(seu.obj, expression = nCount_RNA < 1000),
+        cols.highlight = "orchid",
+        order = F
+        #label.box = TRUE
+ ) + NoLegend()
+p <- formatUMAP(pi) 
+ggsave(paste("./output/lowQ_highlight.png", sep = ""), width =7, height = 7)
+
+filter_inc <- rep("exclude", length(WhichCells(seu.obj, expression = nCount_RNA < 1000)))
+names(filter_inc) <- WhichCells(seu.obj, expression = nCount_RNA < 1000)
+seu.obj <- AddMetaData(seu.obj, filter_inc, col.name = "exclude")
+df <- table(seu.obj$exclude, seu.obj$celltype.l3) %>%
+    as.data.frame() %>%
+    left_join(as.data.frame(table(seu.obj$celltype.l3)), by = c("Var2" = "Var1")) %>%
+    mutate(
+        pctRemoved = round(( Freq.x / Freq.y ) * 100, 2)
+    ) %>%
+    arrange(desc(pctRemoved)) %>%
+    select(-Var1, -Freq.x, -Freq.y) %>%
+    rename(`Cell type` = Var2, `Additional % removed` = pctRemoved)
+
+
 ### Fig extra - check QC params
 features <- c("nCount_RNA", "nFeature_RNA", "percent.mt")
 p <- prettyFeats(seu.obj = seu.obj, nrow = 1, ncol = 3, features = features, 
@@ -233,6 +261,16 @@ p <- formatUMAP(plot = pi) + NoLegend() + theme(plot.title = element_text(size =
                                                 panel.border = element_blank()) + ggtitle("Annotated canine duodenum atlas")
 ggsave(paste("./output/", outName, "/", outName, "_sup1a.png", sep = ""), width = 7, height = 7)
 
+### Fig 1a: create labels to be cropped onto UMAP
+majorColors.df <- as.data.frame(c("T cell", "Epithelial", "Myeloid", "Plasma cell", "Cycling T cell", "Mast", "B cell"))
+colnames(majorColors.df) <- "clusterID_final"
+majorColors.df$colz <- c("#FF89B3", "#C89504", "#00ABFD", "#B983FF", "#FA7476", "#0A9B9F", "#9B8EFF")
+majorColors.df$title <- "All cells"
+majorColors.df$labCol <- "black"
+majorColors.df$labz <- 0:6
+leg <- cusLeg(legend = majorColors.df, clusLabel = "labz", legLabel = "clusterID_final", colorz = "colz",labCol = "labCol",colz = 1, rowz = NULL, groupLabel = "title", dotSize = 10, groupBy = "title",sortBy = "labz", compress_x = 0.9, textSize = 6)
+ggsave(paste("./output/", outName, "/", outName, "_leg_forUMAP_labels.png", sep = ""), width = 2.75, height = 7)
+
 
 ### Fig 1a - create UMAP by major cell types
 pi <- DimPlot(seu.obj, 
@@ -240,10 +278,10 @@ pi <- DimPlot(seu.obj,
               group.by = "clusterID_final",
               cols = c("#FF89B3", "#C89504", "#00ABFD", "#B983FF", "#FA7476", "#0A9B9F", "#9B8EFF"),
               pt.size = 0.25,
-              label = T,
-              label.box = T
+              label = F,
+              label.box = F
  ) + NoLegend()
-p <- cusLabels(plot = pi, shape = 21, size = 10, textSize = 6, alpha = 0.8, labCol = "black", smallAxes = T)
+p <- formatUMAP(plot = pi, smallAxes = T)
 ggsave(paste("./output/", outName,  "/", subname,"/", outName, "_fig1a.png", sep = ""), width = 7, height = 7)
 
 
@@ -451,6 +489,97 @@ res.ftest <- lapply(levels(freqy$data$majorID_pertyName), function(x){
 res.ftest
                
 
+
+### Use miloR to further validate
+library(miloR)
+library(BiocParallel)
+
+runMilo <- function(
+    seu.obj = NULL, 
+    da_design = NULL, 
+    subName = "", 
+    blocked = TRUE, 
+    ...
+    ){
+    
+    # Hard coded metadata re-naming
+    seu.obj$Sample <- seu.obj$name2
+    seu.obj$Condition <- seu.obj$cellSource
+
+    # Convert from Seurat to sce object
+    sce <- as.SingleCellExperiment(seu.obj)
+    reducedDim(sce, "PCA") <- seu.obj@reductions$pca@cell.embeddings
+    reducedDim(sce, "UMAP") <- seu.obj@reductions$umap@cell.embeddings
+
+    # Preprocess using miloR to ID neighboorhoods
+    milo.obj <- Milo(sce)
+    milo.obj$Sample <- droplevels(factor(milo.obj$Sample))
+    milo.obj <- buildGraph(milo.obj, k = 30, d = 40)
+    milo.obj <- makeNhoods(milo.obj, prop = 0.2, k = 30, d = 40, refined = TRUE, refinement_scheme = "graph")
+    p <- plotNhoodSizeHist(milo.obj)
+    ggsave(paste0("./output/", outName, "/", outName, "_NhoodSize.png"), width = 7, height = 7)
+    
+    milo.obj <- countCells(milo.obj, meta.data = data.frame(colData(milo.obj)), samples = "Sample")
+
+    # Set up metadata
+    rownames(da_design) <- da_design$Sample
+    da_design <- da_design[colnames(nhoodCounts(milo.obj)), , drop = FALSE]
+
+    # Calc distance between neighborhoods and test for DA
+    milo.obj <- calcNhoodDistance(milo.obj, d = 40)
+    if(blocked){
+        da_results <- testNhoods(milo.obj, design = ~ Dog + Condition, design.df = da_design)
+    } else{
+        da_results <- testNhoods(milo.obj, design = ~ Condition, design.df = da_design)
+    }
+    
+    n_diff <- da_results %>% arrange(SpatialFDR) %>% filter(SpatialFDR < 0.1) %>% nrow()
+    if(n_diff == 0){
+        message(
+            paste(
+                "No differentially abundant Nhoods at alpha = 0.1!",
+                "The lowest spaitally adjusted P value is:", min(da_results$SpatialFDR),
+                "\n Although not reccomended, you can increase alpha to the lowest",
+                "spaitally adjusted P value to get an idea of which regoins of the",
+                "UMAP are trendy."
+            )
+        )
+    }
+
+    # Plot the results (by neighborhood)
+    milo.obj <- buildNhoodGraph(milo.obj)
+    p <- plotNhoodGraphDA(milo.obj, da_results[!is.na(da_results$logFC), ],
+                          subset.nhoods=!is.na(da_results$logFC), ...)
+    ggsave(paste("./output/", outName, "/", subName, "_milo.png", sep = ""), width = 6, height = 6)
+    return(list(p, milo.obj))
+}
+
+# Set up metadata
+da_design <- as.data.frame(list(
+    "Sample" = factor(c("CIE_1", "CIE_2", "CIE_3", "CIE_4", "H_1", "H_2", "H_3")),
+    "Condition" = factor(c("CIE", "CIE", "CIE", "CIE", "H", "H", "H"), levels = c("H", "CIE"))
+))
+p <- runMilo(seu.obj = seu.obj, da_design = da_design, subName = "CIE_vs_H", blocked = F, alpha = 0.1)
+p0 <- p[[1]] + ggtitle("CIE versus Healthy") + theme(plot.title = element_text(hjust = 0.5)) +
+    scale_fill_gradient2(low = "blue", mid = "white", high = "red", midpoint = 0)
+ggsave(paste0("./output/", outName, "/", outName, "_milo_test.png"), width = 7, height = 7)
+
+milo.obj <- p[[2]] 
+rownames(da_design) <- da_design$Sample
+da_design <- da_design[colnames(nhoodCounts(milo.obj)), , drop = FALSE]
+da_results <- testNhoods(milo.obj, design = ~ Condition, design.df = da_design)
+da_results %>% arrange(SpatialFDR) %>% filter(SpatialFDR < 0.9) %>% nrow()
+
+
+p0 <- plotNhoodGraphDA(milo.obj, da_results[!is.na(da_results$logFC), ],
+                          subset.nhoods = !is.na(da_results$logFC), alpha = 1)
+p0 <- p0 + ggtitle("CIE versus Healthy") + theme(plot.title = element_text(hjust = 0.5)) +
+    scale_fill_gradient2(low = "blue", mid = "white", high = "red", midpoint = 0)
+ggsave(paste("./output/", outName, "/", outName, "_milo_test.png", sep = ""), width = 7, height = 7)
+
+
+
+
 ### Fig 1e: dge analysis all cells
 seu.obj$allCells <- "DGE analysis of all cells"
 seu.obj$allCells <- as.factor(seu.obj$allCells)
@@ -468,12 +597,220 @@ linDEG(seu.obj = seu.obj, groupBy = "majorID_pertyName", comparision = "cellSour
                   )
 
 
+### Fig extra - pseudobulk DEGs btwn healthy and cie
+seu.obj$allCells <- "All cells"
+seu.obj$allCells <- as.factor(seu.obj$allCells)
+createPB(seu.obj = seu.obj, groupBy = "allCells", comp = "cellSource", biologicalRep = "name2", lowFilter = T, 
+         dwnSam = F, min.cell = 15, clusters = NULL, outDir = paste0("./output/", outName,"/pseudoBulk/") , 
+         grepTerm = "H", grepLabel = c("Healthy","CIE") #improve - fix this so it is more functional
+        )
+
+p <- pseudoDEG(metaPWD = paste0("./output/", outName,"/pseudoBulk/allCells_deg_metaData.csv"), returnDDS = F, 
+               padj_cutoff = 0.1, lfcCut = 1, outDir = paste0("./output/", outName,"/pseudoBulk/"), 
+               outName = "allCells", idents.1_NAME = "CIE", idents.2_NAME = "Healthy", 
+               inDir = paste0("./output/", outName,"/pseudoBulk/"), title = "All cells", fromFile = T, meta = NULL, 
+               pbj = NULL, returnVolc = T, paired = F, pairBy = "", minimalOuts = F, saveSigRes = T, 
+               filterTerm = "^ENSCAF", addLabs = NULL, mkDir = T, strict_lfc = F, labSize = 4.5
+              )
+pi <- p[[1]] + scale_y_continuous(limits = c(0, 3))
+pi  <- prettyVolc(plot = pi, rightLab = "Up in CIE", leftLab = "Up in healthy", arrowz = T, lfcCut = 1, y = 2.7) + labs(title = "CIE vs Healthy (within all cells)", x = "log2(Fold change)") + NoLegend() + theme(panel.border = element_rect(color = "black",
+                                      fill = NA,
+                                      size = 2),
+                                      axis.line = element_blank(),
+                                      plot.title = element_text(size = 20, face = "bold", hjust = 0.5, vjust = 2))
+ggsave(paste("./output/", outName, "/", outName, "_supp6e.png", sep = ""), width = 7, height = 7)
+
+
+### Fig extra - pseudobulk DEGs btwn healthy and cie
+createPB(seu.obj = seu.obj, groupBy = "celltype.l3", comp = "cellSource", biologicalRep = "name2", lowFilter = T, 
+         dwnSam = F, min.cell = 15, clusters = NULL, outDir = paste0("./output/", outName,"/pseudoBulk/") , 
+         grepTerm = "H", grepLabel = c("Healthy","CIE") #improve - fix this so it is more functional
+        )
+
+p <- pseudoDEG(metaPWD = paste0("./output/", outName,"/pseudoBulk/celltype.l3_deg_metaData.csv"), returnDDS = F, 
+               padj_cutoff = 0.1, lfcCut = 1, outDir = paste0("./output/", outName,"/pseudoBulk/"), 
+               outName = "allCells", idents.1_NAME = "CIE", idents.2_NAME = "Healthy", 
+               inDir = paste0("./output/", outName,"/pseudoBulk/"), title = "All cells", fromFile = T, meta = NULL, 
+               pbj = NULL, returnVolc = T, paired = F, pairBy = "", minimalOuts = F, saveSigRes = T, 
+               filterTerm = "^ENSCAF", addLabs = NULL, mkDir = T, strict_lfc = F, labSize = 4.5
+              )
+
+
+### Supp fig xx -- heatmap of degs by each cluster
+files <- lapply(levels(seu.obj$celltype.l3), function(x){
+    list.files(path = paste0("./output/allCells/pseudoBulk/", x), pattern = ".csv", all.files = FALSE, full.names = T)
+})
+
+df.list <- lapply(unlist(files), read.csv, header = T)
+
+seu.obj$type <- factor(paste0(as.character(seu.obj$celltype.l3), "--", as.character(seu.obj$cellSource)),
+                       levels = paste0(rep(levels(seu.obj$celltype.l3), each = 2), "--", c("Healthy", "CIE")))
+
+res.df <- do.call(rbind, df.list) %>% 
+    filter(abs(log2FoldChange) > 1) %>% 
+    filter(!grepl("^ENS", gene)) %>%
+    group_by(gs_base) %>%
+    top_n(10, wt = abs(log2FoldChange))
+
+sig.mat <- matrix(nrow = length(unique(res.df$gene)), ncol = length(levels(seu.obj$type)),
+                  dimnames = list(unique(res.df$gene),
+                                  toupper(levels(seu.obj$type))))
+
+for(i in 1:nrow(sig.mat)){
+    for(j in 1:ncol(sig.mat)){
+        cellType <- strsplit(colnames(sig.mat)[j], "--")[[1]][1]
+        condition <- strsplit(colnames(sig.mat)[j], "--")[[1]][2]
+        if(cellType %in% res.df[res.df$gene == rownames(sig.mat)[i], ]$gs_base){
+            lfc <- res.df[res.df$gene == rownames(sig.mat)[i] & res.df$gs_base == cellType, ]$log2FoldChange
+            if(lfc > 1 & condition == "CIE"){
+                sig.mat[i, j] <- "*"
+            } else if(lfc < -1 & condition == "HEALTHY"){
+                sig.mat[i, j] <- "*"
+            } else{
+                sig.mat[i, j] <- ""
+            }
+        } else{
+            sig.mat[i, j] <- ""
+        }
+    }
+}
+
+res.df <- res.df[!duplicated(res.df$gene), ]
+
+
+#extract metadata and data
+metadata <- seu.obj@meta.data
+expression <- as.data.frame(t(seu.obj@assays$RNA@counts)) #use raw count
+expression$anno_merge <- seu.obj@meta.data[rownames(expression),]$type
+
+#get cell type expression averages - do clus avg expression by sample
+clusAvg_expression <- expression %>% group_by(anno_merge) %>% summarise(across(where(is.numeric), mean)) %>% as.data.frame()
+rownames(clusAvg_expression) <- clusAvg_expression$anno_merge
+clusAvg_expression$anno_merge <- NULL
+
+#filter matrix for DEGs and scale by row
+clusAvg_expression <- clusAvg_expression[ ,colnames(clusAvg_expression) %in% res.df$gene]
+mat_scaled <- t(apply(t(log1p(clusAvg_expression)), 1, scale))
+colnames(mat_scaled) <- rownames(clusAvg_expression)
+mat_scaled <- mat_scaled[ ,match(colnames(sig.mat), toupper(colnames(mat_scaled)))]
+mat_scaled <- mat_scaled[match(rownames(sig.mat), rownames(mat_scaled)), ]  
+
+#set annotations
+clus <- gg_color_hue(length(levels(seu.obj$celltype.l3)))
+names(clus) <- levels(seu.obj$celltype.l3)
+cond_colz <- c("mediumseagreen","mediumpurple1")
+names(cond_colz) <- c("Healthy","CIE")
+
+# heat_col <- viridis(option = "magma",100)
+ha <- HeatmapAnnotation(
+    Cluster = factor(unlist(lapply(colnames(mat_scaled), function(x){strsplit(x,"--")[[1]][1]})),
+                     levels = levels(seu.obj$celltype.l3)),
+    Condition = unlist(lapply(colnames(mat_scaled), function(x){strsplit(x,"--")[[1]][2]})),
+    border = TRUE,
+    col = list(Cluster = clus, Condition = cond_colz),
+    show_annotation_name = FALSE
+)
+
+#plot the data
+ht <- Heatmap(
+    mat_scaled,
+    name = "mat",
+    cluster_rows = F,
+    row_names_gp = gpar(fontsize = 8),
+    show_row_names = T,
+    cluster_columns = F,
+    top_annotation = ha,
+    show_column_names = F,
+    column_split = factor(unlist(lapply(colnames(mat_scaled), function(x){strsplit(x,"--")[[1]][1]})),
+                          levels = levels(seu.obj$celltype.l3)),
+    row_title = NULL,
+    column_title = NULL,
+    heatmap_legend_param = list(
+        title = "Scaled expression",
+        direction = "horizontal"
+        ),
+    cell_fun = function(j, i, x, y, width, height, fill) {
+        grid.text(sig.mat[i, j], x, y, gp = gpar(fontsize = 8, col = "black"))
+    }
+)
+
+png(file = paste0("./output/", outName, "/", outName, "_fig3e.png"), width=3750, height=4500, res=400)
+par(mfcol=c(1,1))   
+draw(ht, padding = unit(c(2, 2, 2, 2), "mm"), heatmap_legend_side = "bottom")
+
+# for(i in 1:length(levels(seu.obj$majorID_sub_inc))){
+#     decorate_annotation("Cluster", slice = i, {
+#         grid.text(paste0("c", (1:12) - 1)[i], just = "center")
+#     })
+# }
+dev.off()
+
+### Fig 1b - dot plot by major cell types
+seu.obj$majorID_pertyName_split <- paste0(as.character(seu.obj$majorID_pertyName), " (", as.character(seu.obj$cellSource), ")")
+fig1c <- majorDot(seu.obj = seu.obj, groupBy = "majorID_pertyName_split",
+                  yAxis = NULL, #c("Epithelial","T cell","Myeloid","Plasma cell","B cell","Mast cell","Cycling T cell"),
+                  features = c("KCNK16", "CYP1B1", "IL17F")
+                 ) + theme(axis.title = element_blank(),
+                           axis.text = element_text(size = 12)) +  scale_colour_viridis(option="magma", name='Average\nexpression', 
+                                                                                        breaks = c(-0.5, 1, 2),
+                                                                                        labels = c("-0.5", "1", "2")
+                                                                                       ) + guides(color = guide_colorbar(title = 'Scaled\nExpression  ')) + coord_flip()
+ggsave(paste("./output/", outName, "/", subname, "/", outName, "_fig1b.png", sep = ""), width = 6, height = 3)
+
+
+### Fig 2b - create violin plots for key feats
+features <- c("KCNK16", "CYP1B1", "IL17F")
+
+pi <- VlnPlot(object = seu.obj,
+              pt.size = 0,
+              same.y.lims = F,
+              group.by = "majorID_pertyName",
+              split.by = "cellSource",
+              combine = T,
+              cols = c("#FF89B3", "#C89504", "#00ABFD", "#B983FF", "#FA7476", "#0A9B9F", "#9B8EFF"),
+              stack = T,
+              fill.by = "ident",
+              flip = T,
+              features = features
+             ) + NoLegend() + theme(axis.ticks = element_blank(),
+                                    axis.text.y = element_blank(),
+                                    axis.title.x = element_blank(),
+                                    plot.margin = unit(c(7, 7, 7, 21), "pt"))
+ggsave(paste("./output/", outName, "/", outName, "_fig2b.png", sep = ""), width = 5, height =6)
+
+
+
+### Fig extra - pseudobulk DEGs btwn healthy and cie
+createPB(seu.obj = seu.obj, groupBy = "majorID", comp = "cellSource", biologicalRep = "name2", lowFilter = T, 
+         dwnSam = F, min.cell = 15, clusters = NULL, outDir = paste0("./output/", outName,"/pseudoBulk/") , 
+         grepTerm = "H", grepLabel = c("Healthy","CIE") #improve - fix this so it is more functional
+        )
+p <- pseudoDEG(metaPWD = paste0("./output/", outName,"/pseudoBulk/majorID_deg_metaData.csv"), returnDDS = F, 
+               padj_cutoff = 0.1, lfcCut = 1, outDir = paste0("./output/", outName,"/pseudoBulk/"), 
+               outName = "allCells", idents.1_NAME = "CIE", idents.2_NAME = "Healthy", 
+               inDir = paste0("./output/", outName,"/pseudoBulk/"), title = "All cells", fromFile = T, meta = NULL, 
+               pbj = NULL, returnVolc = T, paired = F, pairBy = "", minimalOuts = F, saveSigRes = T, 
+               filterTerm = "^ENSCAF", addLabs = NULL, mkDir = T, strict_lfc = F
+              )
+
+
 ### Fig 1f: heatmap of dge results by major cell types
-files <- list.files(path = "./output/allCells/n3n4/linDEG/", pattern=".csv", all.files=FALSE,
-                        full.names=T)
+files <- lapply(levels(seu.obj$majorID), function(x){
+    list.files(path = paste0("./output/allCells/pseudoBulk/", x), pattern = ".csv", all.files = FALSE, full.names = T)
+})
+
+files <- unlist(files)[-7]
 df.list <- lapply(files, read.csv, header = T)
-# %>% filter(p_val_adj < 0.01, abs(avg_log2FC) > 0.58 )
-cnts_mat <- do.call(rbind, df.list)  %>% mutate(direction = ifelse(avg_log2FC > 0, "Up", "Down")) %>% group_by(cellType,direction) %>% summarize(nRow = n()) %>% pivot_wider(names_from = cellType, values_from = nRow) %>% as.matrix() %>% t()
+
+cnts_mat <- do.call(rbind, df.list)  %>% 
+    mutate(
+        direction = ifelse(log2FoldChange > 0, "Up", "Down")
+    ) %>% 
+    group_by(gs_base, direction) %>% 
+    summarize(nRow = n()) %>% 
+    pivot_wider(names_from = gs_base, values_from = nRow) %>% 
+    as.matrix() %>% t()
+
 colnames(cnts_mat) <- cnts_mat[1,]
 cnts_mat <- cnts_mat[-c(1),]
 class(cnts_mat) <- "numeric"
@@ -481,16 +818,21 @@ class(cnts_mat) <- "numeric"
 #order by number of total # of DEGs
 orderList <- rev(rownames(cnts_mat)[order(rowSums(cnts_mat))])
 cnts_mat <- cnts_mat[match(orderList, rownames(cnts_mat)),]        
-       
+cnts_mat[is.na(cnts_mat)] <- 0
+rownames(cnts_mat) <- c("Myeloid", "Mast cell", "T cell", "Epithelial", "Plasma cell", "Cycling T cell")
+
 png(file = paste0("./output/", outName, "/", subname, "/",outName, "_fig1f.png"), width=1500, height=2000, res=400)
 par(mfcol=c(1,1))         
 ht <- Heatmap(cnts_mat,#name = "mat", #col = col_fun,
               name = "# of DEGs",
               cluster_rows = F,
               row_title = "Cell type",
-              col=colorRamp2(c(0,max(cnts_mat)), colors = c("white","red")),
+              col = circlize::colorRamp2(c(0,max(cnts_mat)), colors = c("white","red")),
               cluster_columns = F,
-              column_title = "# of DEGs",
+              column_title = gt_render(
+                  paste0("<span style='font-size:18pt; color:black'># of DEGs</span><br>",
+                         "<span style='font-size:12pt; color:black'>(CIE vs Healthy)</span>")
+              ),
               show_column_names = TRUE,
               column_title_side = "top",
               column_names_rot = 0,
@@ -514,7 +856,9 @@ p <- plotGSEA(geneList = upGenes, geneListDwn = dwnGenes, category = "C5", subca
 minVal <- -5
 maxVal <- 7
 pi <- p + scale_x_continuous(limits = c(minVal, maxVal), name = "Signed log10(padj)") + 
-    theme(axis.title=element_text(size = 16)) + 
+    theme(axis.title=element_text(size = 16),
+          plot.title = element_text(face = "bold", hjust = 0.5, size = 16)
+         ) + 
     annotate("segment", x = -0.1, 
              y = 17, 
              xend = minVal, 
@@ -540,7 +884,8 @@ pi <- p + scale_x_continuous(limits = c(minVal, maxVal), name = "Signed log10(pa
              label = "Induced in CIE",
              hjust = 0.5,
              vjust = 1.5,
-             size = 5)
+             size = 5) + 
+    ggtitle("GSEA within Mast cells")
 ggsave(paste("./output/", outName, "/", subname, "/", outName, "_sup2c.png", sep = ""), width = 10, height = 7)
 
 
