@@ -121,14 +121,14 @@ outName <- "tcell"
 
 #remane idents to match the results of clustering at a resolution of 0.2 (as determined using clustree)
 Idents(seu.obj) <- "clusterID_sub"
-seu.obj <- RenameIdents(seu.obj, c("0" = "Tissue resident", "1" = "Tissue resident", 
-                                   "2" = "Non-resident", "3" = "Memory",
-                                   "4" = "Tissue resident", "5" = "Non-resident",
-                                   "6" = "Non-resident", "7" = "Non-resident",
-                                   "8" = "Memory", "9" = "Tissue resident",
-                                   "10" = "Tissue resident", "11" = "Non-resident",
-                                   "12" = "Tissue resident", "13" = "ILC2",
-                                   "14" = "Non-resident","15" = "Non-resident")
+seu.obj <- RenameIdents(seu.obj, c("0" = "GZMA_high", "1" = "GZMA_high", 
+                                   "2" = "IL7R_high", "3" = "Memory",
+                                   "4" = "GZMA_high", "5" = "IL7R_high",
+                                   "6" = "IL7R_high", "7" = "IL7R_high",
+                                   "8" = "Memory", "9" = "GZMA_high",
+                                   "10" = "GZMA_high", "11" = "IL7R_high",
+                                   "12" = "GZMA_high", "13" = "ILC2",
+                                   "14" = "IL7R_high","15" = "IL7R_high")
                        )
 seu.obj$majorID_sub <- Idents(seu.obj)
 
@@ -200,11 +200,11 @@ pi <- DimPlot(seu.obj,
               pt.size = 0.25,
               label = T,
               label.box = T,
-              shuffle = F
-)
-pi <- formatUMAP(plot = pi) + NoLegend() + theme(plot.title = element_text(size = 18, vjust = 1),
-                                                 axis.title = element_blank(),
-                                                 panel.border = element_blank()) + ggtitle("Canine PBMC reference mapping")
+              shuffle = F,
+              repel = T
+) + NoLegend() + theme(plot.title = element_text(size = 18, hjust = 0.5)) + ggtitle("Canine PBMC reference mapping")
+
+p <- formatUMAP(plot = pi, smallAxes = T) & theme(plot.title = element_text(size = 18, hjust = 0.5))
 ggsave(paste("./output/", outName,"/",outName, "_supp4a.png", sep = ""), width = 7, height = 7)
 
 
@@ -234,7 +234,8 @@ pi <- DimPlot(seu.obj,
               pt.size = 0.25,
               label = T,
               label.box = T,
-              shuffle = F
+              shuffle = F,
+              repel = T
 )
 pi <- formatUMAP(plot = pi) + NoLegend() + theme(plot.title = element_text(size = 18, vjust = 1),
                                                  axis.title = element_blank(),
@@ -281,15 +282,15 @@ ggsave(paste("./output/", outName, "/",outName, "_fig3b.png", sep = ""), width =
 
 
 ### Fig 3c - DEG between resident and Non-resident -- this generated supplemental_data_5
-idents.1 = "Non-resident"
-idents.2 = "Tissue resident"
+idents.1 = "IL7R_high"
+idents.2 = "GZMA_high"
 groupBy = "majorID_sub"
 p_volc <- btwnClusDEG(seu.obj = seu.obj, groupBy = groupBy, idents.1 = idents.1, idents.2 = idents.2, bioRep = "name2",padj_cutoff = 0.05, lfcCut = 0.58, 
                       minCells = 25, outDir = paste0("./output/", outName, "/"), 
                       title = paste0(idents.1,"_vs_",idents.2), idents.1_NAME = idents.1, idents.2_NAME = idents.2, strict_lfc = T, 
                       returnVolc = T, doLinDEG = F, paired = T, addLabs = NULL, lowFilter = T, dwnSam = F, setSeed = 24, dwnCol = "#75149D", stblCol = "grey",upCol = "#FF007F", labSize = 3.5
                     )
-p  <- prettyVolc(plot = p_volc[[1]], rightLab = "Up in Cluster 1", leftLab = paste0("Up in Cluster 2"), arrowz = T,  rightCol = "#FF007F", leftCol = "#75149D") + labs(x = "log2(Fold change)") + NoLegend() + theme(panel.border = element_rect(color = "black",
+p  <- prettyVolc(plot = p_volc[[1]], rightLab = "Up in IL7R_high", leftLab = paste0("Up in GZMA_high"), arrowz = T,  rightCol = "#FF007F", leftCol = "#75149D") + labs(x = "log2(Fold change)") + NoLegend() + theme(panel.border = element_rect(color = "black",
                                       fill = NA,
                                       size = 2),
                                       axis.line = element_blank())
@@ -363,14 +364,14 @@ ggsave(paste("../output/", outName, "/", outName, "_milo_test.png", sep = ""), w
 
 #remane idents to split the Memory subtype into their cooresponding resdent/non-resident classification
 Idents(seu.obj) <- "clusterID_sub"
-seu.obj <- RenameIdents(seu.obj, c("0" = "Tissue resident", "1" = "Tissue resident", 
-                                   "2" = "Non-resident", "3" = "Tissue resident",
-                                   "4" = "Tissue resident", "5" = "Non-resident",
-                                   "6" = "Non-resident", "7" = "Non-resident",
-                                   "8" = "Non-resident", "9" = "Tissue resident",
-                                   "10" = "Tissue resident", "11" = "Non-resident",
-                                   "12" = "Tissue resident", "13" = "ILC2",
-                                   "14" = "Non-resident","15" = "Non-resident")
+seu.obj <- RenameIdents(seu.obj, c("0" = "GZMA_high", "1" = "GZMA_high", 
+                                   "2" = "IL7R_high", "3" = "GZMA_high",
+                                   "4" = "GZMA_high", "5" = "IL7R_high",
+                                   "6" = "IL7R_high", "7" = "IL7R_high",
+                                   "8" = "IL7R_high", "9" = "GZMA_high",
+                                   "10" = "GZMA_high", "11" = "IL7R_high",
+                                   "12" = "GZMA_high", "13" = "ILC2",
+                                   "14" = "IL7R_high","15" = "IL7R_high")
                        )
 seu.obj$majorID_sub_SplitMem <- Idents(seu.obj)
 
@@ -399,7 +400,7 @@ cluster_freq.table <- cluster_freq.table[,-3]
 colnames(cluster_freq.table) <- c("Sample", "ClusterID", "Count")
 cluster_freq.table <- cluster_freq.table %>% dplyr::group_by(Sample) %>% mutate(pct = round(prop.table(Count),2))
 
-ratio.df <- cluster_freq.table[ ,c(1:3)] %>% pivot_wider(names_from = "ClusterID", values_from = "Count") %>% mutate(trm_tinf_ratio = `Tissue resident`/`Non-resident`)
+ratio.df <- cluster_freq.table[ ,c(1:3)] %>% pivot_wider(names_from = "ClusterID", values_from = "Count") %>% mutate(trm_tinf_ratio = GZMA_high / IL7R_high)
 
 ratio.df <- ratio.df[ ,c(1,4)] %>% mutate(cellSource = ifelse(grepl("CIE", Sample), "CIE", "Healthy"))
 t.test(trm_tinf_ratio ~ cellSource, ratio.df)
@@ -408,7 +409,7 @@ ratio.df$cellSource <- factor(ratio.df$cellSource, levels = c("Healthy","CIE"))
 car::leveneTest(trm_tinf_ratio ~ cellSource, data = ratio.df)
 
 p <- ggplot(ratio.df, aes(y = trm_tinf_ratio, x = cellSource)) + 
-    labs(x = NULL, y = "Ratio (Tissue resident/Non-resident)") + 
+    labs(x = NULL, y = "Ratio (GZMA_high/IL7R_high)") + 
     theme_bw() + 
     theme(panel.grid.minor = element_blank(),
           panel.grid.major = element_blank(), 
@@ -430,30 +431,22 @@ p <- ggplot(ratio.df, aes(y = trm_tinf_ratio, x = cellSource)) +
 ggsave(paste("./output/", outName, "/", outName, "_supp5d.png", sep = ""), width = 2.5, height = 3.5)
 
 
-### Fig 3c - DEG between resident and Non-resident -- this generated supplemental_data_5
-idents.1 = "Non-resident"
-idents.2 = "Tissue resident"
-groupBy = "majorID_sub_SplitMem"
-p_volc <- btwnClusDEG(seu.obj = seu.obj, groupBy = groupBy, idents.1 = idents.1, idents.2 = idents.2, bioRep = "name2",padj_cutoff = 0.05, lfcCut = 0.58, 
-                      minCells = 25, outDir = paste0("./output/", outName, "/"), 
-                      title = paste0(idents.1,"_vs_",idents.2), idents.1_NAME = idents.1, idents.2_NAME = idents.2, strict_lfc = T, 
-                      returnVolc = T, doLinDEG = F, paired = T, addLabs = NULL, lowFilter = T, dwnSam = F, setSeed = 24, dwnCol = "#75149D", stblCol = "grey",upCol = "#FF007F", labSize = 3.5
-                    )
-p  <- prettyVolc(plot = p_volc[[1]], rightLab = "Up in T subpop 1", leftLab = paste0("Up in T subpop 2"), arrowz = T,  rightCol = "#FF007F", leftCol = "#75149D") + labs(x = "log2(Fold change)") + NoLegend() + theme(panel.border = element_rect(color = "black",
-                                      fill = NA,
-                                      size = 2),
-                                      axis.line = element_blank())
-ggsave(gsub(" ", "_",paste("./output/", outName, "/", outName, "_", idents.1, "_V_", idents.2, ".png", sep = "")), width = 7, height = 7)
-
-
 ### Fig supp 4d: gsea of the DGE results  "", stblCol = "grey",upCol = "#FF007F"
-p <- plotGSEA(pwdTOgeneList = "./output/tcell/Non-resident_vs_Tissue_resident_all_genes.csv", category = "C5", 
-              upCol = "#75149D", dwnCol = "#FF007F", size = 4) 
+p <- plotGSEA(pwdTOgeneList = "./output/tcell/IL7R_high_vs_GZMA_high_all_genes.csv", category = "C5", 
+              upCol = "#75149D", dwnCol = "#FF007F", size = 3.5) 
 
-minVal <- -10
-maxVal <- 10
+minVal <- -12
+maxVal <- 12
 pi <- p + scale_x_continuous(limits = c(minVal, maxVal), name = "Signed log10(padj)") + 
-    theme(axis.title=element_text(size = 16)) + 
+    theme(
+        plot.title = element_text(size = 20, hjust = 0.5),
+        plot.subtitle = element_text(size = 16, hjust = 0.5),
+        axis.title = element_text(size = 16)
+    ) + 
+    labs(
+        title = "Gene ontology of T cell subsets",
+        subtitle = "(IL7R_high vs GZMA_high)"
+    ) + 
     annotate("segment", x = -0.1, 
              y = nrow(p$data)+1, 
              xend = minVal, 
@@ -463,7 +456,7 @@ pi <- p + scale_x_continuous(limits = c(minVal, maxVal), name = "Signed log10(pa
             ) + 
     annotate(geom = "text", x = (minVal-0.1*1.5)/2-0.1*1.5, 
              y = nrow(p$data)+2,
-             label = "Up in tissue resident",
+             label = "Up in GZMA_high",
              hjust = 0.5,
              vjust = 1.5,
              size = 5) +
@@ -476,11 +469,11 @@ pi <- p + scale_x_continuous(limits = c(minVal, maxVal), name = "Signed log10(pa
             ) + 
     annotate(geom = "text", x = (maxVal-0.1*1.5)/2+0.1*1.5, 
              y = nrow(p$data)+2,
-             label = "Up in Non-resident",
+             label = "Up in IL7R_high",
              hjust = 0.5,
              vjust = 1.5,
              size = 5)
-ggsave(paste("./output/", outName, "/", outName, "_supp4d.png", sep = ""), width = 7.6, height = 5)
+ggsave(paste("./output/", outName, "/", outName, "_supp4d.png", sep = ""), width = 7.6, height = 7)
 
 
 ### Fig extra - plot the top 20 DEGs in heatmap form
@@ -492,7 +485,7 @@ geneListDwn <- geneLists %>% arrange(padj) %>% filter(log2FoldChange < 0) %>% .$
 feats_forHeat <- c(head(geneListUp,20), head(geneListDwn,20))
 
 #subset the data
-seu.obj.sub <- subset(seu.obj, majorID_sub_SplitMem == "Non-resident" | majorID_sub_SplitMem == "Tissue resident")
+seu.obj.sub <- subset(seu.obj, majorID_sub_SplitMem == "Non-resident" | majorID_sub_SplitMem == "GZMA_high")
 seu.obj.sub$type <- paste0(seu.obj.sub$majorID_sub_SplitMem,"--",seu.obj.sub$name2)
 
 #extract metadata and data
@@ -595,6 +588,14 @@ seu.obj <- RenameIdents(seu.obj, c("0" = "CD8_eff (c0)", "1" = "CD8_eff (c0)",
 seu.obj$majorID_sub_noILC <- Idents(seu.obj)
 seu.obj$majorID_sub_noILC <- factor(seu.obj$majorID_sub_noILC, levels = levels(seu.obj$majorID_sub_noILC)[c(4,7,1,3,6,2,8,10,5,9)])
 
+Idents(seu.obj) <- "majorID_sub_big"
+seu.obj <- RenameIdents(seu.obj, c("Non-resident" = "IL7R_high",
+                                   "Tissue resident" = "GZMA_high",
+                                   "Memory" = "CCL4_high"
+                                  )
+                       )
+seu.obj$majorID_sub_big <- Idents(seu.obj)
+
 
 #stash the numerical ID
 clusterID_final <- table(seu.obj$majorID_sub_noILC) %>% as.data.frame() %>% arrange(desc(Freq)) %>%
@@ -644,7 +645,7 @@ pi <- DimPlot(seu.obj,
               cols = colz,
               label = T,
               label.box = T
-             )
+             ) + NoLegend()
 p <- cusLabels(plot = pi, shape = 21, size = 10, textSize = 6, alpha = 0.8, labCol = labColz, smallAxes = T)
 ggsave(paste0("./output/", outName, "/", outName, "_fig3d.png"), width = 7, height = 7)
 
@@ -673,7 +674,7 @@ p <- sankeyPlot(seu_obj = seu.obj, new.ident = "clusterID_final_noILC", old.iden
 
 #extract and reorder nodes
 data <- p$data %>% as.data.frame()
-data$node <- factor(data$node,levels = c("Tissue resident", "Memory", "Non-resident", "c0", "c3", "c6", "c2", "c5", "c1", "c7", "c4", "c8", "c9"))
+data$node <- factor(data$node,levels = c("GZMA_high", "CCL4_high", "IL7R_high", "c0", "c3", "c6", "c2", "c5", "c1", "c7", "c4", "c8", "c9"))
 data$next_node <- factor(data$next_node,levels = c("c0", "c3", "c6", "c2", "c5", "c1", "c7", "c4", "c8", "c9"))
 
 #color order is alphabetical for some reason... replot with correct colorization
@@ -687,7 +688,7 @@ geom_sankey() +
 geom_sankey(flow.alpha = 0.5, node.color = 1) + 
 geom_sankey_label(size = 3, color = "black", fill = "gray85") +
 theme_sankey(base_size = 16) +
-scale_fill_manual(values = c("#FF1E6D", "#EF98CB", "#C47AEA", colz[c(3,6,4,1,9,5,2,7,10,8)])) +
+scale_fill_manual(values = c("#FF1E6D", "#C47AEA", "#EF98CB", colz[c(3,6,4,1,9,5,2,7,10,8)])) +
 theme(legend.position = "none",
       axis.title.x = element_blank(),
       axis.text.x = element_blank(),
@@ -719,16 +720,18 @@ seu.obj.Hsub <- subset(seu.obj,
                   cellSource ==  "Healthy"
                  ) 
 
-colnames(seu.obj.ros@assays$RNA@data) <- ifelse(grepl("_1",rownames(seu.obj.ros@meta.data)),paste0(substr(rownames(seu.obj.ros@meta.data), 1, nchar(rownames(seu.obj.ros@meta.data))-2),"_7") ,rownames(seu.obj.ros@meta.data))
-colnames(seu.obj.ros@assays$RNA@data) <- ifelse(grepl("_2",rownames(seu.obj.ros@meta.data)),paste0(substr(rownames(seu.obj.ros@meta.data), 1, nchar(rownames(seu.obj.ros@meta.data))-2),"_8") ,rownames(seu.obj.ros@meta.data))
-colnames(seu.obj.ros@assays$RNA@data) <- ifelse(grepl("_3",rownames(seu.obj.ros@meta.data)),paste0(substr(rownames(seu.obj.ros@meta.data), 1, nchar(rownames(seu.obj.ros@meta.data))-2),"_9") ,rownames(seu.obj.ros@meta.data))
+TRDC_ex <- FetchData(seu.obj.ros, vars = "TRDC")
 
-seu.obj.Hsub <- AddMetaData(seu.obj.Hsub, metadata = seu.obj.ros@assays$RNA@data[rownames(seu.obj.ros@assays$RNA@data) == "TRDC",], col.name = "TRDC")
+rownames(TRDC_ex) <- ifelse(grepl("1_1",rownames(TRDC_ex)), paste0(substr(rownames(TRDC_ex), 1, nchar(rownames(TRDC_ex))-3),"1_7") ,rownames(TRDC_ex))
+rownames(TRDC_ex) <- ifelse(grepl("1_2",rownames(TRDC_ex)), paste0(substr(rownames(TRDC_ex), 1, nchar(rownames(TRDC_ex))-3),"1_8") ,rownames(TRDC_ex))
+rownames(TRDC_ex) <- ifelse(grepl("1_3",rownames(TRDC_ex)), paste0(substr(rownames(TRDC_ex), 1, nchar(rownames(TRDC_ex))-3),"1_9") ,rownames(TRDC_ex))
+
+seu.obj.Hsub <- AddMetaData(seu.obj.Hsub, metadata = TRDC_ex, col.name = "TRDC")
 
 features = c("TRDC", "ENSCAFG00000030206")
 
-p <- prettyFeats(seu.obj = seu.obj.Hsub, nrow = 1, ncol = 2, features = features, color = "black", order = F) 
-ggsave(paste("./output/", outName, "/", outName, "_supp5c.png", sep = ""), width = 8, height = 4)
+p <- prettyFeats(seu.obj = seu.obj.Hsub, nrow = 2, ncol = 1, features = features, color = "black", order = F) 
+ggsave(paste("./output/", outName, "/", outName, "_supp5c.png", sep = ""), width = 5, height = 8)
 
 
 ### Fig supp 5e - umap by sample

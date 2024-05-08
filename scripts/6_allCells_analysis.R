@@ -149,6 +149,14 @@ seu.obj <- subset(seu.obj, invert = T,
                   subset = celltype.l3 == "remove"
                  )
 seu.obj$celltype.l3 <- droplevels(seu.obj$celltype.l3)
+
+#recover the MS4A1+ T cells
+
+seu.obj$celltype.l3 <- factor(ifelse(seu.obj$clusterID_2_1 == "29",
+       "MS4A1_T_cell",
+       as.character(seu.obj$celltype.l3)
+      ))
+
 saveRDS(seu.obj, "./output/s3/canine_duodenum_annotated.rds")
 
 
@@ -262,15 +270,14 @@ p <- formatUMAP(plot = pi) + NoLegend() + theme(plot.title = element_text(size =
 ggsave(paste("./output/", outName, "/", outName, "_sup1a.png", sep = ""), width = 7, height = 7)
 
 ### Fig 1a: create labels to be cropped onto UMAP
-majorColors.df <- as.data.frame(c("T cell", "Epithelial", "Myeloid", "Plasma cell", "Cycling T cell", "Mast", "B cell"))
+majorColors.df <- as.data.frame(c("", "", "", "", "", "", ""))
 colnames(majorColors.df) <- "clusterID_final"
 majorColors.df$colz <- c("#FF89B3", "#C89504", "#00ABFD", "#B983FF", "#FA7476", "#0A9B9F", "#9B8EFF")
-majorColors.df$title <- "All cells"
+majorColors.df$title <- ""
 majorColors.df$labCol <- "black"
 majorColors.df$labz <- 0:6
 leg <- cusLeg(legend = majorColors.df, clusLabel = "labz", legLabel = "clusterID_final", colorz = "colz",labCol = "labCol",colz = 1, rowz = NULL, groupLabel = "title", dotSize = 10, groupBy = "title",sortBy = "labz", compress_x = 0.9, textSize = 6)
 ggsave(paste("./output/", outName, "/", outName, "_leg_forUMAP_labels.png", sep = ""), width = 2.75, height = 7)
-
 
 ### Fig 1a - create UMAP by major cell types
 pi <- DimPlot(seu.obj, 
@@ -304,13 +311,20 @@ predictions <- TransferData(anchorset = anchors, refdata = reference$celltype.l3
 seu.obj <- AddMetaData(seu.obj, metadata = predictions)
 seu.obj$predicted.canine <- seu.obj$predicted.id
 
+seu.obj$predicted.id_clean <- factor(ifelse(as.character(seu.obj$majorID) == "epithelial",
+                                     "NA", as.character(seu.obj$predicted.id)))
+
+colz <- gg_color_hue(length(levels(seu.obj$predicted.id_clean)))
+colz[levels(seu.obj$predicted.id_clean) == "NA"] <- "grey75"
+
 pi <- DimPlot(seu.obj, 
               reduction = "umap", 
-              group.by = "predicted.id",
-              #cols = levels(seu.obj.ds$colz), #check colorization is correct
+              group.by = "predicted.id_clean",
+              cols = colz,
               pt.size = 0.25,
               label = T,
               label.box = T,
+              repel = T, 
               shuffle = F
 )
 p <- formatUMAP(plot = pi) + NoLegend() + theme(plot.title = element_text(size = 18, vjust = 1),
@@ -329,6 +343,8 @@ reference <- MuDataSeurat::ReadH5AD("./epi_log_counts02_v2.h5ad")
 reference <- SCTransform(reference, verbose = FALSE)
 reference <- RunPCA(reference)
 
+gc()
+
 #map data
 anchors <- FindTransferAnchors(
     reference = reference,
@@ -344,19 +360,23 @@ predictions <- TransferData(anchorset = anchors, refdata = reference$annotation,
 seu.obj <- AddMetaData(seu.obj, metadata = predictions)
 seu.obj$predicted.human_epi <- seu.obj$predicted.id
 
+seu.obj$predicted.id_clean <- factor(ifelse(as.character(seu.obj$majorID) == "epithelial",
+                                     as.character(seu.obj$predicted.id), "NA"))
+
+colz <- gg_color_hue(length(levels(seu.obj$predicted.id_clean)))
+colz[levels(seu.obj$predicted.id_clean) == "NA"] <- "grey75"
+
 pi <- DimPlot(seu.obj, 
               reduction = "umap", 
-              group.by = "predicted.id",
-              #cols = levels(seu.obj.ds$colz), #check colorization is correct
+              group.by = "predicted.id_clean",
+              cols = colz,
               pt.size = 0.25,
               label = T,
               label.box = T,
+              repel = T, 
               shuffle = F
-)
-p <- formatUMAP(plot = pi) + NoLegend() + theme(plot.title = element_text(size = 18, vjust = 1),
-                                               axis.title = element_blank(),
-                                               panel.border = element_blank(),
-                                                plot.margin = unit(c(-7, -7, -7, -7), "pt")) + ggtitle("Human epithelial reference mapping")
+) + NoLegend() + theme(plot.title = element_text(size = 18, hjust = 0.5)) + ggtitle("Human epithelial reference mapping")
+p <- formatUMAP(plot = pi, smallAxes = T) & theme(plot.title = element_text(size = 18, hjust = 0.5))
 ggsave(paste("./output/", outName, "/", subname,"/",outName, "_umap_Predicted_hu_epi.png", sep = ""), width = 7, height = 7)
 
 gc()
@@ -381,13 +401,20 @@ predictions <- TransferData(anchorset = anchors, refdata = reference$annotation,
 seu.obj <- AddMetaData(seu.obj, metadata = predictions)
 seu.obj$predicted.human_mesen <- seu.obj$predicted.id
 
+seu.obj$predicted.id_clean <- factor(ifelse(as.character(seu.obj$majorID) %in% c("tcell", "cycling"),
+                                     as.character(seu.obj$predicted.id), "NA"))
+
+colz <- gg_color_hue(length(levels(seu.obj$predicted.id_clean)))
+colz[levels(seu.obj$predicted.id_clean) == "NA"] <- "grey75"
+
 pi <- DimPlot(seu.obj, 
               reduction = "umap", 
-              group.by = "predicted.id",
-              #cols = levels(seu.obj.ds$colz), #check colorization is correct
+              group.by = "predicted.id_clean",
+              cols = colz,
               pt.size = 0.25,
               label = T,
               label.box = T,
+              repel = T, 
               shuffle = F
 )
 p <- formatUMAP(plot = pi) + NoLegend() + theme(plot.title = element_text(size = 18, vjust = 1),
@@ -745,17 +772,21 @@ draw(ht, padding = unit(c(2, 2, 2, 2), "mm"), heatmap_legend_side = "bottom")
 # }
 dev.off()
 
-### Fig 1b - dot plot by major cell types
-seu.obj$majorID_pertyName_split <- paste0(as.character(seu.obj$majorID_pertyName), " (", as.character(seu.obj$cellSource), ")")
-fig1c <- majorDot(seu.obj = seu.obj, groupBy = "majorID_pertyName_split",
-                  yAxis = NULL, #c("Epithelial","T cell","Myeloid","Plasma cell","B cell","Mast cell","Cycling T cell"),
-                  features = c("KCNK16", "CYP1B1", "IL17F")
-                 ) + theme(axis.title = element_blank(),
-                           axis.text = element_text(size = 12)) +  scale_colour_viridis(option="magma", name='Average\nexpression', 
-                                                                                        breaks = c(-0.5, 1, 2),
-                                                                                        labels = c("-0.5", "1", "2")
-                                                                                       ) + guides(color = guide_colorbar(title = 'Scaled\nExpression  ')) + coord_flip()
-ggsave(paste("./output/", outName, "/", subname, "/", outName, "_fig1b.png", sep = ""), width = 6, height = 3)
+
+### Fig 1b - dot plot by split showing DEGS
+p <- splitDot(
+    seu.obj = seu.obj, groupBy = "majorID_pertyName", splitBy = "cellSource", 
+    namedColz = setNames(c("#93CA8B", "#D7B6EA"),  c("Healthy", "CIE")), 
+    geneList_UP = c("CYP1B1", "IL17F"), geneList_DWN = "KCNK16", geneColz = c("red", "blue")
+    ) + 
+    theme(
+        plot.margin = margin(7, 65, 7, 95, "pt")
+    ) +
+    scale_colour_viridis(
+        option="magma", name='Average\nexpression', 
+        breaks = c(-0.25, 1, 2), labels = c("-0.25", "1", "2")
+    )
+ggsave(plot = p, paste("./output/", outName, "/", outName, "_fig1b.png", sep = ""), width = 4, height = 5)
 
 
 ### Fig 2b - create violin plots for key feats
@@ -802,7 +833,9 @@ files <- lapply(levels(seu.obj$majorID), function(x){
 files <- unlist(files)[-7]
 df.list <- lapply(files, read.csv, header = T)
 
-cnts_mat <- do.call(rbind, df.list)  %>% 
+res.df <- do.call(rbind, df.list) %>% filter(abs(log2FoldChange) > 1)
+write.csv(res.df, file = "./output/supplementalData/supplemental_data_3.csv")
+cnts_mat <- res.df  %>% 
     mutate(
         direction = ifelse(log2FoldChange > 0, "Up", "Down")
     ) %>% 
@@ -816,10 +849,10 @@ cnts_mat <- cnts_mat[-c(1),]
 class(cnts_mat) <- "numeric"
 
 #order by number of total # of DEGs
+cnts_mat[is.na(cnts_mat)] <- 0
 orderList <- rev(rownames(cnts_mat)[order(rowSums(cnts_mat))])
 cnts_mat <- cnts_mat[match(orderList, rownames(cnts_mat)),]        
-cnts_mat[is.na(cnts_mat)] <- 0
-rownames(cnts_mat) <- c("Myeloid", "Mast cell", "T cell", "Epithelial", "Plasma cell", "Cycling T cell")
+rownames(cnts_mat) <- c("Myeloid", "Mast cell", "Epithelial", "T cell", "Plasma cell", "Cycling T cell")
 
 png(file = paste0("./output/", outName, "/", subname, "/",outName, "_fig1f.png"), width=1500, height=2000, res=400)
 par(mfcol=c(1,1))         
@@ -830,12 +863,13 @@ ht <- Heatmap(cnts_mat,#name = "mat", #col = col_fun,
               col = circlize::colorRamp2(c(0,max(cnts_mat)), colors = c("white","red")),
               cluster_columns = F,
               column_title = gt_render(
-                  paste0("<span style='font-size:18pt; color:black'># of DEGs</span><br>",
-                         "<span style='font-size:12pt; color:black'>(CIE vs Healthy)</span>")
+                  paste0("<span style='font-size:14pt; color:black'>**# of DEGs**</span><br>",
+                         "<span style='font-size:12pt; color:black'>(CIE vs healthy)</span>")
               ),
               show_column_names = TRUE,
               column_title_side = "top",
               column_names_rot = 0,
+              column_names_gp = gpar(fontsize = 14, col = "black"),
               column_names_centered = TRUE,
               heatmap_legend_param = list(legend_direction = "horizontal", title_position = "topleft",  title_gp = gpar(fontsize = 16), 
                                           labels_gp = gpar(fontsize = 8), legend_width = unit(6, "cm")),

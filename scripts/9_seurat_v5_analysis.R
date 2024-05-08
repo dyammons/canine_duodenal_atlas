@@ -125,6 +125,11 @@ seu.obj <- runSCVIintegration(seu.obj = seu.obj.all, outName = "allCells_v5")
 seu.obj <- readRDS("../output/s3/allCells_v5_integrated_v5_res0.4_dims30_dist0.5_neigh40_S3.rds")
 outName <- "allCells_v5"
 
+seu.obj$celltype.l3 <- factor(ifelse(seu.obj$clusterID_2_1 == "29",
+       "MS4A1_T_cell",
+       as.character(seu.obj$celltype.l3)
+      ))
+
 
 ### Fig 1a - create UMAP by major cell types
 pi <- DimPlot(seu.obj, 
@@ -313,12 +318,32 @@ seu.obj.all <- readRDS("./output/s3/canine_duodenum_annotated.rds")
 seu.obj <- AddMetaData(seu.obj, seu.obj.all$celltype.l3, col.name = "celltype.l3")
 outName <- "tcell"
 
+#correct naming change
+Idents(seu.obj) <- "clusterID_sub"
+seu.obj <- RenameIdents(seu.obj, c("0" = "Tissue resident", "1" = "Tissue resident", 
+                                   "2" = "Non-resident", "3" = "Memory",
+                                   "4" = "Tissue resident", "5" = "Non-resident",
+                                   "6" = "Non-resident", "7" = "Non-resident",
+                                   "8" = "Memory", "9" = "Tissue resident",
+                                   "10" = "Tissue resident", "11" = "Non-resident",
+                                   "12" = "Tissue resident", "13" = "ILC2",
+                                   "14" = "Non-resident","15" = "Non-resident")
+                       )
+seu.obj$majorID_sub <- Idents(seu.obj)
+
+Idents(seu.obj) <- "majorID_sub"
+seu.obj <- RenameIdents(seu.obj, c("Non-resident" = "IL7R_high",
+                                   "Tissue resident" = "GZMA_high"
+                                  )
+                       )
+seu.obj$majorID_sub <- Idents(seu.obj)
+
 # seu.obj <- dataVisUMAP(
 #     seu.obj = seu.obj, outDir = "../output/s3/", 
 #     outName = paste0(outName, "_integrated_v5"), final.dims = 30, 
-#     final.res = 0.6, stashID = "clusterID", algorithm = 3, min.dist = 0.3, 
+#     final.res = 0.6, stashID = "clusterID_v5", algorithm = 3, min.dist = 0.3, 
 #     n.neighbors = 30, prefix = "RNA_snn_res.", assay = "RNA", 
-#     reduction = "integrated_v5", saveRDS = T, return_obj = T, returnFeats = T,
+#     reduction = "integrated_v5", saveRDS = F, return_obj = T, returnFeats = T,
 #     features = c("PTPRC", "CD3E", "CD8A", "GZMA", 
 #                  "IL7R", "ANPEP", "FLT3", "DLA-DRA", 
 #                  "CD4", "MS4A1", "PPBP","HBM")
@@ -326,6 +351,74 @@ outName <- "tcell"
 
 vilnPlots(seu.obj = seu.obj, groupBy = "clusterID_integrated_v5",
           outName = "tell_v5", outDir = paste0("../output/violin/", outName, "/"))
+
+
+### Fig supp 1a - create UMAP by previous annotations
+pi <- DimPlot(seu.obj, 
+              reduction = "umap.integrated_v5", 
+              group.by = "clusterID_v5_integrated_v5",
+              pt.size = 0.25,
+              label = T,
+              label.box = T
+             ) + NoLegend()
+p <- cusLabels(plot = pi, shape = 21, size = 10, textSize = 6, alpha = 0.8)  +
+    theme(
+        plot.title = element_text(size = 20, hjust = 0.5),
+        plot.subtitle = element_text(size = 16, hjust = 0.5),
+        axis.title = element_blank(),
+        panel.border = element_blank()
+    ) +
+    ggtitle("scVI unsupervised clustering")
+ggsave(paste0("../output/", outName, "/", outName, "_fig3d.png"), width = 7, height = 7)
+
+
+pi <- DimPlot(seu.obj, 
+              reduction = "umap.integrated_v5", 
+              group.by = "celltype.l3",
+              pt.size = 0.25,
+              label = T,
+              label.box = T,
+              shuffle = TRUE,
+              repel = T
+) + NoLegend() + 
+    labs(
+        title = "T cell canine duodenum atlas",
+        subtitle = "(High resolution annotations)"
+    )
+
+p <- formatUMAP(plot = pi) +
+    theme(
+        plot.title = element_text(size = 20, hjust = 0.5),
+        plot.subtitle = element_text(size = 16, hjust = 0.5),
+        axis.title = element_blank(),
+        panel.border = element_blank()
+    )
+
+ggsave(paste("../output/", outName, "/", outName, "_sup1a.png", sep = ""), width = 7, height = 7)
+
+
+pi <- DimPlot(seu.obj, 
+              reduction = "umap.integrated_v5", 
+              group.by = "celltype.l3",
+              pt.size = 0.25,
+              label = T,
+              label.box = T,
+              shuffle = TRUE,
+              repel = T
+) + NoLegend() + 
+    labs(
+        title = "T cell canine duodenum atlas"
+    )
+
+p <- formatUMAP(plot = pi, smallAxes = T) &
+    theme(
+        plot.title = element_text(size = 20, hjust = 0.5),
+        panel.border = element_blank()
+    )
+
+ggsave(paste("../output/", outName, "/", outName, "_sup1a.png", sep = ""), width = 7, height = 7)
+
+
 
 ### Fig supp 1a - create UMAP by previous annotations
 pi <- DimPlot(seu.obj, 
@@ -336,10 +429,20 @@ pi <- DimPlot(seu.obj,
               label.box = T,
               shuffle = TRUE,
               repel = T
-)
-p <- formatUMAP(plot = pi) + NoLegend() + theme(plot.title = element_text(size = 18, vjust = 1),
-                                                axis.title = element_blank(),
-                                                panel.border = element_blank()) + ggtitle("T cell canine duodenum atlas")
+) + NoLegend() + 
+    labs(
+        title = "T cell canine duodenum atlas",
+        subtitle = "(High resolution annotations)"
+    )
+
+p <- formatUMAP(plot = pi) +
+    theme(
+        plot.title = element_text(size = 20, hjust = 0.5),
+        plot.subtitle = element_text(size = 16, hjust = 0.5),
+        axis.title = element_blank(),
+        panel.border = element_blank()
+    )
+
 ggsave(paste("../output/", outName, "/", outName, "_sup1a.png", sep = ""), width = 7, height = 7)
 
 
@@ -352,12 +455,40 @@ pi <- DimPlot(seu.obj,
               label.box = T,
               shuffle = TRUE,
               repel = T
-)
-p <- formatUMAP(plot = pi) + NoLegend() + theme(plot.title = element_text(size = 18, vjust = 1),
-                                                axis.title = element_blank(),
-                                                panel.border = element_blank()) + ggtitle("T cell canine duodenum atlas")
+) + NoLegend() + 
+    labs(
+        title = "T cell canine duodenum atlas",
+        subtitle = "(Low resolution annotations)"
+    )
+
+p <- formatUMAP(plot = pi, smallAxes = T) &
+    theme(
+        plot.title = element_text(size = 20, hjust = 0.5),
+        plot.subtitle = element_text(size = 16, hjust = 0.5)
+    )
 ggsave(paste("../output/", outName, "/", outName, "_sup1a.png", sep = ""), width = 7, height = 7)
 
+
+### Fig supp 5c - transfer TRDC data from ROS data
+seu.obj.ros <- readRDS(file = "./output/s3/230828_duod_h3_ros_res0.4_dims50_dist0.4_neigh30_S3.rds")
+
+seu.obj.Hsub <- subset(seu.obj,
+                  subset = 
+                  cellSource ==  "Healthy"
+                 ) 
+
+TRDC_ex <- FetchData(seu.obj.ros, vars = "TRDC")
+
+rownames(TRDC_ex) <- ifelse(grepl("1_1",rownames(TRDC_ex)), paste0(substr(rownames(TRDC_ex), 1, nchar(rownames(TRDC_ex))-3),"1_7") ,rownames(TRDC_ex))
+rownames(TRDC_ex) <- ifelse(grepl("1_2",rownames(TRDC_ex)), paste0(substr(rownames(TRDC_ex), 1, nchar(rownames(TRDC_ex))-3),"1_8") ,rownames(TRDC_ex))
+rownames(TRDC_ex) <- ifelse(grepl("1_3",rownames(TRDC_ex)), paste0(substr(rownames(TRDC_ex), 1, nchar(rownames(TRDC_ex))-3),"1_9") ,rownames(TRDC_ex))
+
+seu.obj.Hsub <- AddMetaData(seu.obj.Hsub, metadata = TRDC_ex, col.name = "TRDC")
+
+features = c("TRDC", "ENSCAFG00000030206")
+
+p <- prettyFeats(seu.obj = seu.obj.Hsub, nrow = 2, ncol = 1, reduction = "umap.integrated_v5",  features = features, color = "black", order = F) 
+ggsave(paste("../output/", outName, "/", outName, "_supp5c.png", sep = ""), width = 5, height = 8)
 
 
 ### Fig 3b - dot plot of key t cell features
@@ -368,13 +499,52 @@ p <- prettyFeats(seu.obj = seu.obj, nrow = 2, ncol = 5, features = features, red
 ggsave(paste("../output/", outName, "/",outName, "_fig3b.png", sep = ""), width = 12.5, height = 5)
 
 
-
 ### Use miloR to further validate
 # Set up metadata
+seu.obj$Sample <- seu.obj$name2
+seu.obj$Condition <- factor(seu.obj$cellSource, levels = c("CIE", "H"))
+
 da_design <- as.data.frame(list(
     "Sample" = factor(c("CIE_1", "CIE_2", "CIE_3", "CIE_4", "H_1", "H_2", "H_3")),
     "Condition" = factor(c("CIE", "CIE", "CIE", "CIE", "H", "H", "H"), levels = c("H", "CIE"))
 ))
+
+miloOut <- runMilo(
+    seu.obj = seu.obj, da_design = da_design, groupBy = "Sample",
+    splitBy = "Condition", outName = outName, subName = "CIE_vs_H",
+    embedding = seu.obj@reductions$umap.integrated_v5@cell.embeddings,
+    blocked = FALSE, alpha = 0.2
+)
+
+
+p1 <- miloOut[[1]] + 
+    ggtitle("CIE versus healthy") + 
+    theme(
+        plot.title = element_text(size = 20, face = "bold", hjust = 0.5)
+    ) + 
+    scale_fill_gradient2(
+        name = "log2(FC)",
+        low = "blue", mid = "white", high = "red", midpoint = 0
+    ) + 
+    scale_edge_width(
+        name = "Overlap size", range = c(0.2, 3)
+    ) + 
+    guides(
+        size = guide_legend(title = "Neighborhood\nsize",
+                            override.aes = list(fill = NA, shape = 21))
+    )
+ggsave(paste0("../output/", outName, "/", outName, "_milo_sig.png"), width = 8, height = 7)
+
+
+
+
+
+
+
+
+
+
+
 p <- runMilo(seu.obj = seu.obj, da_design = da_design, subName = "CIE_vs_H", blocked = F, alpha = 0.1)
 
 p0 <- p[[1]] + ggtitle("CIE versus Healthy") + theme(plot.title = element_text(hjust = 0.5)) +
@@ -443,7 +613,9 @@ seu.obj$clusterID_final <- Idents(seu.obj)
 
 seu.obj <- runSCVIintegration(seu.obj = seu.obj, outName = "epithelial_v5")
 
+### reload here
 seu.obj.all <- readRDS("./output/s3/canine_duodenum_annotated.rds")
+seu.obj <- readRDS("../output/s3/epithelial_v5_integrated_v5_res0.4_dims30_dist0.5_neigh40_S3.rds")
 seu.obj <- AddMetaData(seu.obj, seu.obj.all$celltype.l3, col.name = "celltype.l3")
 outName <- "epithelial"
 
@@ -462,7 +634,7 @@ pi <- DimPlot(seu.obj,
 )
 p <- formatUMAP(plot = pi) + NoLegend() + theme(plot.title = element_text(size = 18, vjust = 1),
                                                 axis.title = element_blank(),
-                                                panel.border = element_blank()) + ggtitle("T cell canine duodenum atlas")
+                                                panel.border = element_blank()) + ggtitle("Epithelial canine duodenum atlas")
 ggsave(paste("../output/", outName, "/", outName, "_sup1a.png", sep = ""), width = 7, height = 7)
 
 

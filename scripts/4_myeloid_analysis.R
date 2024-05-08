@@ -168,7 +168,7 @@ pi <- DimPlot(seu.obj,
               label.box = T,
               shuffle = TRUE
 ) + NoLegend()
-p <- cusLabels(plot = pi, shape = 21, size = 10, textSize = 6, alpha = 0.8, smallAxes = T)  #, labCol = majorColors.df$labCol
+p <- cusLabels(plot = pi, shape = 21, size = 10, textSize = 6, alpha = 0.6, smallAxes = T)  #, labCol = majorColors.df$labCol
 ggsave(paste0("./output/", outName, "/", outName, "_fig2a.png"), width = 7, height = 7)
 
 
@@ -486,10 +486,21 @@ linDEG(seu.obj = seu.obj, groupBy = "allCells", comparision = "cellSource", outD
 res.df <- read.csv("./output/myeloid/pseudoBulk/allCells/allCells_cluster_allCells_all_genes.csv")
 geneList <- res.df %>% filter(padj < 0.05) %>% filter(log2FoldChange > 1) %>% pull(gene)
 
-p <- plotGSEA(geneList = geneList, upOnly = T, category = "C2", subcategory = "CP:REACTOME", size = 4.5,termsTOplot = 10) 
-pi <- p + scale_x_continuous(limits = c(-10,ceiling(max(p$data$x_axis)*1.05)), breaks = c(0,ceiling(max(p$data$x_axis)*1.05)/2,ceiling(max(p$data$x_axis)*1.05)),name = "-log10(padj)") + ggtitle("Reactome") + theme(plot.title = element_text(size = 20, hjust = 0.5),
-axis.title=element_text(size = 16))
-ggsave(paste("./output/", outName, "/", outName, "_supp3e.png", sep = ""), width = 10, height =7)
+p <- plotGSEA(geneList = geneList, upOnly = T, category = "C2", subcategory = "CP:REACTOME", size = 3.5, termsTOplot = 10, lolli = T) 
+pi <- p + 
+    scale_x_continuous(limits = c(-10,ceiling(max(p$data$x_axis)*1.05)), 
+                       breaks = c(0,ceiling(max(p$data$x_axis)*1.05)/2,ceiling(max(p$data$x_axis)*1.05)),
+                       name = "-log10(padj)") + 
+    theme(
+        plot.title = element_text(size = 20, hjust = 0.5),
+        plot.subtitle = element_text(size = 16, hjust = 0.5),
+        axis.title=element_text(size = 16)
+    ) + 
+    labs(
+        title = "Myeloid reactome GSEA",
+        subtitle = "(CIE vs healthy)"
+    )
+ggsave(paste("./output/", outName, "/", outName, "_supp3e.png", sep = ""), width = 8, height = 4)
 
 
 
@@ -507,68 +518,12 @@ length(geneList_UP[geneList_UP %in% geneList_UP2]) / length(geneList_UP) * 100
 geneList_UP[!geneList_UP %in% geneList_UP2]
 length(geneList_DWN[geneList_DWN %in% geneList_DWN2]) / length(geneList_DWN) * 100
 
-
-seu.obj$majorID_sub_split <- factor(paste0(as.character(seu.obj$majorID_sub), " (", as.character(seu.obj$cellSource), ")"))
-namedColz <- c("#93CA8B", "#D7B6EA")
-names(namedColz) <- c("Healthy", "CIE")
-seu.obj$majorID_sub_split <- factor(seu.obj$majorID_sub_split, levels = levels(seu.obj$majorID_sub_split)[c(10, 9, 2, 1, 8, 7, 6, 5, 12, 11, 4, 3)])
-
-p <- DotPlot(seu.obj, assay = "RNA", features = c(geneList_UP, geneList_DWN),
-                 group.by = "majorID_sub_split", scale = T
-            )
-
-labz.df <- as.data.frame(list(
-    "y_pos" = seq(1.5, 11.5, by = 2),
-    "labz" = levels(seu.obj$majorID_sub)
-))
-
-for (i in 1:nrow(labz.df)){
-p <- p + annotation_custom(
-      grob = textGrob(label = labz.df$labz[i], hjust = 1, gp = gpar(cex = 1.5)),
-      ymin = labz.df$y_pos[i],
-      ymax = labz.df$y_pos[i],
-      xmin = -0.6,
-      xmax = -0.6)
- }
-p <- p + annotate("rect", xmin = 0.5, xmax = length(c(geneList_UP, geneList_DWN)) + 0.5, ymin = c(0.5, 4.5, 8.5), ymax = c(2.5, 6.5, 10.5), 
-           alpha = 0.1, fill = "grey50") +
-    theme(
-        axis.line = element_blank(),
-        axis.title = element_blank(),
-        axis.text = element_blank(),
-        axis.ticks = element_blank(),
-        axis.text.x = element_text(angle = 45, vjust = 1, hjust=1,
-                                   colour = c(rep("red", length(geneList_UP)), rep("blue", length(geneList_DWN)))),
-        legend.box = "vertical",
-        plot.margin = margin(7, 7, 7, 150, "pt"),
-        legend.position = "bottom",
-        legend.justification='center',
-        legend.key = element_rect(fill = 'transparent', colour = NA),
-        legend.key.size = unit(1, "line"),
-        legend.background = element_rect(fill = 'transparent', colour = NA),
-        panel.background = element_rect(fill = 'transparent', colour = NA),
-        plot.background = element_rect(fill = "transparent", colour = NA),
-        panel.border = element_rect(color = "black",
-                                    fill = NA,
-                                    size = 1)
-    ) + 
-#     guides(size=guide_legend(override.aes = list(shape=21, colour="black", fill="white"),
-#                              label.position = "bottom")) +    
-    scale_colour_viridis(option="magma", name='Average\nexpression', breaks = c(-0.5, 1, 2), 
-                         labels = c("-0.5", "1", "2")) +
-    guides(color = guide_colorbar(title = 'Scaled\nExpression  '),
-           size = guide_legend(override.aes = list(fill = NA, shape = 21),
-                               label.position = "bottom")) + 
-    geom_tile(data = df, aes(fill = `Cell source`, x = 0), show.legend = T) + 
-    scale_y_discrete(expand = c(0, 0)) +  #, breaks = seq(1.5, 11.5, by = 2), labels = levels(seu.obj$majorID_sub)
-    scale_fill_manual(values = namedColz) + 
-    geom_point(aes(size=pct.exp), shape = 21, colour="black", stroke=0.5) +
-    labs(size='Percent\nexpression') +
-    scale_size(range = c(0.5, 8), limits = c(0, 100)) +
-    coord_cartesian(clip = 'off')
-
+p <- splitDot(
+    seu.obj = seu.obj, groupBy = "majorID_sub", splitBy = "cellSource", 
+    namedColz = setNames(c("#93CA8B", "#D7B6EA"),  c("Healthy", "CIE")), 
+    geneList_UP = geneList_UP, geneList_DWN = geneList_DWN, geneColz = c("red", "blue")
+)
 ggsave(plot = p, paste("./output/", outName, "/", outName, "_fig1b.png", sep = ""), width = 8, height = 7)
-
 
 
 ### Fig extra - deg between cie and healthy within each cluster
@@ -582,7 +537,7 @@ linDEG(seu.obj = seu.obj, threshold = 1, thresLine = F, groupBy = "majorID_sub",
 set.seed(12)
 Idents(seu.obj) <- "cellSource"
 seu.obj.sub <- subset(seu.obj, downsample = min(table(seu.obj$cellSource)))
-features <- c("IL1A", "SOD2", "IL7R", "ALAS1", "CCL4")
+features <- c("IL7R", "ALAS1", "CCL4", "IL1A", "SOD2", "ADAMDEC1")
 p <- FeaturePlot(seu.obj.sub,features = features, pt.size = 0.1, split.by = "cellSource", order = T, by.col = F,
                 ) + labs(x = "UMAP1", y = "UMAP2") & theme(axis.text = element_blank(),
                                                            axis.title.y.right = element_text(size = 16),
@@ -595,8 +550,24 @@ p <- FeaturePlot(seu.obj.sub,features = features, pt.size = 0.1, split.by = "cel
                                                           ) & scale_color_gradient(breaks = pretty_breaks(n = 3), 
                                                                                    limits = c(NA, NA), low = "lightgrey", 
                                                                                    high = "darkblue")
-ggsave(paste("./output/", outName, "/",outName, "_fig2d.png", sep = ""), width = 6, height = 3)
+ggsave(paste("./output/", outName, "/",outName, "_fig2d.png", sep = ""), width = 8, height = 3)
 
+
+legg <- FeaturePlot(seu.obj.sub, features = features[1]) + 
+    theme(
+        legend.position = 'bottom',
+        legend.direction = 'horizontal',
+        legend.justification = "center",
+    ) + 
+    scale_color_gradient(
+        breaks = c(0, 1), 
+        limits = c(0, 1), 
+        label = c("low", "high"),
+        low = "lightgrey", 
+        high = "darkblue"
+    )
+legg <- get_legend(legg)
+ggsave(plot = legg, paste("./output/", outName, "/", outName, "_splitFeats.png", sep = ""), width = 4, height = 4)
 
 ### Fig extra - DEGs by samples
 lapply(unique(seu.obj$name2), function(sampleName){
