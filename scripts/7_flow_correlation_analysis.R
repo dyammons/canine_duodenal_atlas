@@ -7,7 +7,7 @@ source("/pl/active/dow_lab/dylan/repos/K9-PBMC-scRNAseq/analysisCode/customFunct
 # This script loads in the fully annotated processed Seurat object (./output/s3/canine_duodenum_annotated.rds)
 # then loads the external cell counts determined using flow cytometry (tcell_flow.csv and major_flow.csv) 
 # to complete correlation analysis between gold standard (flow cytometry) and scRNA. 
-# The script generates supplemental figure 1e
+# The script generates Supplemental figure 2e
 
 ############################################# <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 #######   Run correlation analysis   ######## <<<<<<<<<<<<<<
@@ -57,7 +57,6 @@ major.df <- major.df %>% mutate(pct_live = live/singlets,
                                 
                                 pct_immune_other = (immune-cd11b-tcell)/immune,
                                 pct_live_other = (live-(live - immune)-cd11b-tcell)/live
-
                                )
 
 #generate csv with summary stats on the percentages
@@ -98,7 +97,7 @@ eq <- substitute(italic(y) == a + b ~italic(x)*","~~italic(R)^2~"="~r2,
               b = format(unname(coef(lmModel)[2]), digits = 2),
              r2 = format(summary(lmModel)$r.squared, digits = 2)))
 
-### Fig supp 1e: make the coor plot with flow
+### Fig supp 2e - make the coor plot with flow
 p <- ggplot(plotData, aes(x=pctFlow, y=pctScrna)) + 
                 stat_smooth(method = "lm", se = FALSE, fullrange = TRUE, linetype = "dashed", color = "grey50") +
                 geom_point(aes(color = ClusterID)) +
@@ -122,7 +121,7 @@ p <- ggplot(plotData, aes(x=pctFlow, y=pctScrna)) +
                                                   fill = NA,
                                                   size = 2)
                       ) + scale_colour_manual(values=c("#C89504", "#FF89B3", "#00ABFD", "#9B8EFF"))
-ggsave(paste("./output/", outName, "/", outName, "_sup1e.png", sep = ""), width = 5.25, height = 3.5)
+ggsave(paste("./output/", outName, "/", outName, "_supp2e.png", sep = ""), width = 5.25, height = 3.5)
 
 ############################################# <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 #######   End correlation analysis   ######## <<<<<<<<<<<<<<

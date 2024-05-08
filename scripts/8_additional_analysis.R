@@ -4,7 +4,8 @@
 source("/pl/active/dow_lab/dylan/repos/K9-PBMC-scRNAseq/analysisCode/customFunctions.R")
 
 ### Analysis note: 
-# This script ...
+# This script transfers the labels from the annotated dataset to the individual pre-integrated datasets and plots
+# key DEGs identified throughout the manuscript. Generates Supplemental figure 4.
 
 ############################################### <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 #######   Run plotting for each sample ######## <<<<<<<<<<<<<<
