@@ -6,7 +6,7 @@ source("/pl/active/dow_lab/dylan/repos/scrna-seq/analysis-code/customFunctions.R
 
 ### Analysis note: 
 # This script loads in the previously processed Seurat object (./output/s3/230816_duod_h3c4_NoIntrons_res1.3_dims40_dist0.3_neigh50_S3.rds)
-# then subsets on myeloid cells and generates all figures assocaited with Figure 2
+# then subsets on myeloid cells and generates all figures assocaited with Figure 3 and Supplemental figure 3
 
 ########################################### <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 #######   begin meyloid cell preprocessing   ######## <<<<<<<<<<<<<<
@@ -145,7 +145,7 @@ ExportToCB_cus(seu.obj = seu.obj, dataset.name = "myeloid", outDir = "./output/c
                           )
 
 
-### Fig supp 3a - Create UMAP by clusterID_sub
+### Fig supp 5a - Create UMAP by clusterID_sub
 pi <- DimPlot(seu.obj, 
               reduction = "umap", 
               group.by = "clusterID_sub",
@@ -155,10 +155,10 @@ pi <- DimPlot(seu.obj,
               shuffle = TRUE
 ) + NoLegend()
 p <- cusLabels(plot = pi, shape = 21, size = 10, textSize = 6, alpha = 0.8, smallAxes = T)  #, labCol = majorColors.df$labCol
-ggsave(paste("./output/", outName,"/", outName, "_supp3a.png", sep = ""), width = 7, height = 7)
+ggsave(paste("./output/", outName,"/", outName, "_supp5a.png", sep = ""), width = 7, height = 7)
 
 
-### Fig 2a - UMAP by clusterID_final
+### Fig 3a - UMAP by clusterID_final
 pi <- DimPlot(seu.obj, 
               reduction = "umap", 
               group.by = "clusterID_final",
@@ -169,10 +169,10 @@ pi <- DimPlot(seu.obj,
               shuffle = TRUE
 ) + NoLegend()
 p <- cusLabels(plot = pi, shape = 21, size = 10, textSize = 6, alpha = 0.6, smallAxes = T)  #, labCol = majorColors.df$labCol
-ggsave(paste0("./output/", outName, "/", outName, "_fig2a.png"), width = 7, height = 7)
+ggsave(paste0("./output/", outName, "/", outName, "_fig3a.png"), width = 7, height = 7)
 
 
-### Fig 2b - create violin plots for key feats
+### Fig 3b - create violin plots for key feats
 features <- c("IL22RA2","FSCN1","LY86", "BATF3", 
               "FLT3", "CADM1",              
               "MSR1","CCL3","CSF1R",
@@ -195,7 +195,7 @@ pi <- VlnPlot(object = seu.obj,
                                     axis.text.y = element_blank(),
                                     axis.title.x = element_blank(),
                                     plot.margin = unit(c(7, 7, 7, 21), "pt"))
-ggsave(paste("./output/", outName, "/", outName, "_fig2b.png", sep = ""), width = 5, height =6)
+ggsave(paste("./output/", outName, "/", outName, "_fig3b.png", sep = ""), width = 5, height =6)
 
 
 ### Fig extra - Plot key feats
@@ -212,7 +212,7 @@ p <- prettyFeats(seu.obj = seu.obj, nrow = 5, ncol =  3, features = features,
 ggsave(paste("./output/", outName, "/", outName, "_extraFeats.png", sep = ""), width = 9, height = 15)
 
 
-### Fig supp 3b - umap by sample
+### Fig supp 5b - umap by sample
 Idents(seu.obj) <- "cellSource"
 set.seed(12)
 seu.obj.ds <- subset(x = seu.obj, downsample = min(table(seu.obj@meta.data$cellSource)))
@@ -232,7 +232,7 @@ pi <- formatUMAP(pi) + labs(colour="") + theme(legend.position = "top",
                                                panel.border = element_blank(),
                                                plot.margin = unit(c(-7, -7, -7, -7), "pt")
                                               ) + guides(colour = guide_legend(nrow = 1, override.aes = list(size = 4)))
-ggsave(paste("./output/", outName, "/", outName, "_supp3b.png", sep = ""), width =7, height = 7)
+ggsave(paste("./output/", outName, "/", outName, "_supp5b.png", sep = ""), width =7, height = 7)
 
 
 ### Fig extra: reference map using Gut Atlas data
@@ -272,7 +272,7 @@ pi <- formatUMAP(plot = pi)
 ggsave(paste("./output/", outName, "/",outName, "_umap_Predicted_gutAtlas.png", sep = ""), width = 10, height = 7)
 
 
-### Fig extra: reference map using canine PBMC Atlas data
+### Fig extra - reference map using canine PBMC Atlas data
 reference <- readRDS(file = "../../k9_PBMC_scRNA/analysis/output/s3/final_dataSet_HvO.rds")
 #download reference with utils::download.file("https://ftp.ncbi.nlm.nih.gov/geo/series/GSE225nnn/GSE225599/suppl/GSE225599_final_dataSet_HvO.rds.gz", dest = "/pwd/to/dir/final_dataSet_HvO.rds.gz")
 reference[['integrated']] <- as(object = reference[['integrated']] , Class = "SCTAssay")
@@ -306,119 +306,12 @@ pi <- formatUMAP(plot = pi)
 ggsave(paste("./output/", outName, "/",outName, "_umap_Predicted_canPBMC_Atlas.png", sep = ""), width = 10, height = 7)
 
 
-### Use miloR to further validate
-library(miloR)
-library(BiocParallel)
-
-seu.obj$Sample <- seu.obj$name
-seu.obj$Condition <- seu.obj$cellSource
-
-runMilo <- function(seu.obj = NULL, da_design = NULL, subName = "", blocked = TRUE, ...){
-    # Convert from Seurat to sce object
-    sce <- as.SingleCellExperiment(seu.obj)
-    reducedDim(sce, "PCA") <- seu.obj@reductions$pca@cell.embeddings
-    reducedDim(sce, "UMAP") <- seu.obj@reductions$umap@cell.embeddings
-
-    # Preprocess using miloR to ID neighboorhoods
-    milo.obj <- Milo(sce)
-    milo.obj$Sample <- droplevels(factor(milo.obj$Sample))
-    milo.obj <- buildGraph(milo.obj, k = 30, d = 40)
-    milo.obj <- makeNhoods(milo.obj, prop = 0.2, k = 30, d = 40, refined = TRUE, refinement_scheme = "graph")
-    p <- plotNhoodSizeHist(milo.obj)
-    ggsave(paste0("../output/", outName, "/", outName, "_NhoodSize.png"), width = 7, height = 7)
-    
-    milo.obj <- countCells(milo.obj, meta.data = data.frame(colData(milo.obj)), samples = "Sample")
-
-    # Set up metadata
-    rownames(da_design) <- da_design$Sample
-    da_design <- da_design[colnames(nhoodCounts(milo.obj)), , drop = FALSE]
-
-    # Calc distance between neighborhoods and test for DA
-    milo.obj <- calcNhoodDistance(milo.obj, d = 40)
-    if(blocked){
-        da_results <- testNhoods(milo.obj, design = ~ Dog + Condition, design.df = da_design)
-    } else{
-        da_results <- testNhoods(milo.obj, design = ~ Condition, design.df = da_design)
-    }
-    
-    da_results %>% arrange(SpatialFDR) %>% filter(SpatialFDR < 0.1) %>% nrow()
-
-    # Plot the results (by neighborhood)
-    milo.obj <- buildNhoodGraph(milo.obj)
-    p <- plotNhoodGraphDA(milo.obj, da_results[!is.na(da_results$logFC), ],
-                          subset.nhoods=!is.na(da_results$logFC), ...)
-    ggsave(paste("../output/", outName, "/", subName, "_milo.png", sep = ""), width = 6, height = 6)
-    return(list(p, da_results))
-}
-
-# Set up metadata
-da_design <- as.data.frame(list(
-    "Sample" = factor(c("CIE_2", "CIE_3", "CIE_4", "CIE_6", "H_1", "H_2", "H_3")),
-    "Condition" = factor(c("CIE", "CIE", "CIE", "CIE", "H", "H", "H"), levels = c("H", "CIE"))
-))
-p <- runMilo(seu.obj = seu.obj, da_design = da_design, subName = "CIE_vs_H", blocked = F, alpha = 1)
-p0 <- p[[1]] + ggtitle("CIE versus Healthy") + theme(plot.title = element_text(hjust = 0.5)) +
-    scale_fill_gradient2(low = "blue", mid = "white", high = "red", midpoint = 0)
-ggsave(paste("../output/", outName, "/", outName, "_milo_test.png", sep = ""), width = 7, height = 7)
-
-p[[2]] %>% arrange(SpatialFDR)
-
-p <- plotNhoodGraphDA(milo.obj, p[[2]][!is.na(p[[2]]$logFC), ],
-                          subset.nhoods = !is.na(p[[2]]$logFC), alpha = 0.55)
-p0 <- p + ggtitle("CIE versus Healthy") + theme(plot.title = element_text(hjust = 0.5)) +
-    scale_fill_gradient2(low = "blue", mid = "white", high = "red", midpoint = 0)
-ggsave(paste("../output/", outName, "/", outName, "_milo_test.png", sep = ""), width = 7, height = 7)
-
-
-
-### Use DA-seq for further abundance analysis -- consistent with original approaches
-library(DAseq)
-meta.df <- as.data.frame(list(
-    "label" = factor(c("CIE_2", "CIE_3", "CIE_4", "CIE_6", "H_1", "H_2", "H_3")),
-    "condition" = factor(c("CIE", "CIE", "CIE", "CIE", "H", "H", "H"), levels = c("H", "CIE"))
-))
-
-pcs <- as.data.frame(seu.obj@reductions$pca@cell.embeddings)
-labels_h <- seu.obj@meta.data[seu.obj$cellSource == "Healthy", "name"]
-labels_os <- seu.obj@meta.data[seu.obj$cellSource == "CIE", "name"]
-
-
-da_cells <- getDAcells(
-  X = pcs,
-  cell.labels = as.character(seu.obj$name),
-  labels.1 = as.character(labels_h),
-  labels.2 = as.character(labels_os),
-  k.vector = seq(50, 500, 50),
-  plot.embedding = as.data.frame(seu.obj@reductions$umap@cell.embeddings)
-)
-
-da_cells$pred.plot + scale_colour_gradient2(low = "blue", mid = "white", high = "red", midpoint = 0, 
-                                          limits = c(-max(abs(da_cells$pred.plot$data$Score)), max(abs(da_cells$pred.plot$data$Score))))
-ggsave(paste("./output/", outName, "/",outName, "_UMAP_da.png", sep = ""), width = 7, height = 7)
-
-p.data <- ggplot_build(da_cells$rand.plot)
-min.threshold <- min(p.data$data[[2]][c(da_cells$da.down, da_cells$da.up), ]$y) * 0.9
-max.threshold <- max(p.data$data[[2]][c(da_cells$da.down, da_cells$da.up), ]$y) * 0.9
-# min.threshold <- min(da_cells$rand.pred[[2]])
-# max.threshold <- max(da_cells$rand.pred[[2]])
-
-p <- da_cells$rand.plot
-ggsave(paste("./output/", outName, "/",outName, "_randPlot_da.png", sep = ""), width = 7, height = 7)
-
-
-da_cells <- updateDAcells(
-  X = da_cells, pred.thres = c(min.threshold, max.threshold),
-  plot.embedding = as.data.frame(seu.obj@reductions$umap@cell.embeddings)
-)
-ggsave(paste("./output/", outName, "/",outName, "_UMAP_da_sig.png", sep = ""), width = 7, height = 7)
-
-
-### Fig supp 3c - evlauate cell frequency by majorID
+### Fig supp 5c - evlauate cell frequency by majorID
 freqy <- freqPlots(seu.obj, method = 1, nrow= 1, groupBy = "majorID_sub", legTitle = "Cell source",refVal = "name2", showPval = T,
                    namez = unique(seu.obj$name2), 
                    colz = unique(seu.obj$colz)
                   )
-ggsave(paste("./output/", outName, "/",outName, "_supp3c.png", sep = ""), width = 9, height = 3)
+ggsave(paste("./output/", outName, "/",outName, "_supp5c.png", sep = ""), width = 9, height = 3)
 
 
 ### Fig extra - evlauate cell frequency by clusterID_sub
@@ -429,20 +322,20 @@ freqy <- freqPlots(seu.obj, method = 1, nrow= 1, groupBy = "clusterID_sub", legT
 ggsave(paste("./output/", outName, "/",outName, "_freq_by_clusID.png", sep = ""), width = 9, height = 3)
 
 
-### Fig supp 3d: stacked bar graph by majorID_sub
+### Fig supp 5d: stacked bar graph by majorID_sub
 p <- stackedBar(seu.obj = seu.obj, downSampleBy = "cellSource", groupBy = "name2", clusters = "majorID_sub") +
 scale_fill_manual(labels = unique(seu.obj$name2), 
                   values = unique(seu.obj$colz)) + theme(axis.title.y = element_blank(),
                                                          axis.title.x = element_text(size = 14),
                                                          axis.text = element_text(size = 12)) + scale_x_discrete(limits=c("Eosinophil","Neutrophil","Monocyte","Macrophage","cDC1","IL22RA2_DC"),expand = c(0, 0))
-ggsave(paste("./output/", outName,"/",outName, "_supp3d.png", sep = ""), width =7, height = 5)
+ggsave(paste("./output/", outName,"/",outName, "_supp5d.png", sep = ""), width =7, height = 5)
 
 
-### Fig extra - pseudobulk DEGs btwn healthy and cie
+### Fig 3c - pseudobulk DEGs btwn healthy and cie
 seu.obj$allCells <- "allCells"
 seu.obj$allCells <- as.factor(seu.obj$allCells)
 createPB(seu.obj = seu.obj, groupBy = "allCells", comp = "cellSource", biologicalRep = "name2", lowFilter = T, dwnSam =F, min.cell = 15,
-                     clusters = NULL, outDir = paste0("./output/", outName,"/pseudoBulk/") , grepTerm = "H", grepLabel = c("Healthy","CIE") #improve - fix this so it is more functional
+                     clusters = NULL, outDir = paste0("./output/", outName,"/pseudoBulk/") , grepTerm = "H", grepLabel = c("Healthy","CIE")
                     )
 p <- pseudoDEG(metaPWD = paste0("./output/", outName,"/pseudoBulk/allCells_deg_metaData.csv"), returnDDS = F, 
           padj_cutoff = 0.1, lfcCut = 1, outDir = paste0("./output/", outName,"/pseudoBulk/"), outName = "allCells", idents.1_NAME = "CIE", idents.2_NAME = "Healthy",
@@ -455,25 +348,10 @@ pi  <- prettyVolc(plot = p[[1]], rightLab = "Up in CIE", leftLab = "Up in health
                                       size = 2),
                                       axis.line = element_blank(),
                                       plot.title = element_text(size = 20, face = "bold", hjust = 0.5, vjust = 2))
-ggsave(paste("./output/", outName, "/", outName, "_supp6e.png", sep = ""), width = 7, height = 7)
+ggsave(paste("./output/", outName, "/", outName, "_fig3c.png", sep = ""), width = 7, height = 7)
 
 
-### Fig extra - pseudobulk DEGs btwn healthy and cie -- on only the 3 non-outlier CIE dogs
-seu.obj.sub <- subset(seu.obj, invert = T, subset = name2 == "CIE_3")
-seu.obj.sub$allCells <- "All cells"
-seu.obj.sub$allCells <- as.factor(seu.obj.sub$allCells)
-createPB(seu.obj = seu.obj.sub, groupBy = "allCells", comp = "cellSource", biologicalRep = "name2", lowFilter = T, dwnSam =F, min.cell = 15,
-                     clusters = NULL, outDir = paste0("./output/", outName,"/pseudoBulk/") , grepTerm = "H", grepLabel = c("Healthy","CIE") #improve - fix this so it is more functional
-                    )
-
-p <- pseudoDEG(metaPWD = paste0("./output/", outName,"/pseudoBulk/allCells_deg_metaData.csv"), returnDDS = F, 
-          padj_cutoff = 0.05, lfcCut = 1, outDir = paste0("./output/", outName,"/pseudoBulk/"), outName = "allCells", idents.1_NAME = "CIE", idents.2_NAME = "Healthy",
-          inDir = paste0("./output/", outName,"/pseudoBulk/"), title = "All cells", fromFile = T, meta = NULL, pbj = NULL, returnVolc = T, paired = F, pairBy = "", 
-          minimalOuts = F, saveSigRes = T, filterTerm = "^ENSCAF", addLabs = NULL, mkDir = T, strict_lfc = F
-                     )
-
-
-### Fig 2c - deg scatter plot
+### Fig extra - deg scatter plot (uses obsolete Wilcoxon rank sum)
 seu.obj$allCells <- "DGE analysis of myeloid cells"
 seu.obj$allCells <- as.factor(seu.obj$allCells)
 linDEG(seu.obj = seu.obj, groupBy = "allCells", comparision = "cellSource", outDir = paste0("./output/", outName,"/"), 
@@ -482,7 +360,7 @@ linDEG(seu.obj = seu.obj, groupBy = "allCells", comparision = "cellSource", outD
       )
 
 
-### Fig supp 3e - gsea plot using degs
+### Fig supp 5e - gsea plot using degs
 res.df <- read.csv("./output/myeloid/pseudoBulk/allCells/allCells_cluster_allCells_all_genes.csv")
 geneList <- res.df %>% filter(padj < 0.05) %>% filter(log2FoldChange > 1) %>% pull(gene)
 
@@ -500,11 +378,11 @@ pi <- p +
         title = "Myeloid reactome GSEA",
         subtitle = "(CIE vs healthy)"
     )
-ggsave(paste("./output/", outName, "/", outName, "_supp3e.png", sep = ""), width = 8, height = 4)
+ggsave(paste("./output/", outName, "/", outName, "_supp5e.png", sep = ""), width = 8, height = 4)
 
 
 
-### Fig 1b - dot plot by major cell types
+### Fig 3e - dot plot by major cell types
 res.df <- read.csv("./output/myeloid/pseudoBulk/allCells/allCells_cluster_allCells_all_genes.csv")
 geneList_UP <- res.df %>% filter(padj < 0.1) %>% filter(log2FoldChange > 1) %>% pull(gene)
 geneList_DWN <- res.df %>% filter(padj < 0.1) %>% filter(log2FoldChange < -1) %>% pull(gene)
@@ -523,17 +401,18 @@ p <- splitDot(
     namedColz = setNames(c("#93CA8B", "#D7B6EA"),  c("Healthy", "CIE")), 
     geneList_UP = geneList_UP, geneList_DWN = geneList_DWN, geneColz = c("red", "blue")
 )
-ggsave(plot = p, paste("./output/", outName, "/", outName, "_fig1b.png", sep = ""), width = 8, height = 7)
+ggsave(plot = p, paste("./output/", outName, "/", outName, "_fig3e.png", sep = ""), width = 8, height = 7)
 
 
 ### Fig extra - deg between cie and healthy within each cluster
 linDEG(seu.obj = seu.obj, threshold = 1, thresLine = F, groupBy = "majorID_sub", comparision = "cellSource", contrast = c("CIE", "Healthy"),
        outDir = paste0("./output/", outName,"/linDEG/"), outName = "myeloid", cluster = NULL, labCutoff = 10, noTitle = F,
-       colUp = "red", colDwn = "blue", subtitle = T, returnUpList = F, returnDwnList = F, forceReturn = F, useLineThreshold = F, pValCutoff = 0.01, logfc.threshold = 0.58, saveGeneList = T, addLabs = ""
-                  )
+       colUp = "red", colDwn = "blue", subtitle = T, returnUpList = F, returnDwnList = F, forceReturn = F, useLineThreshold = F, 
+       pValCutoff = 0.01, logfc.threshold = 0.58, saveGeneList = T, addLabs = ""
+      )
 
 
-### Fig 2d - deg between cie and healthy within each cluster
+### Fig 3d - deg between cie and healthy within each cluster
 set.seed(12)
 Idents(seu.obj) <- "cellSource"
 seu.obj.sub <- subset(seu.obj, downsample = min(table(seu.obj$cellSource)))
@@ -550,7 +429,7 @@ p <- FeaturePlot(seu.obj.sub,features = features, pt.size = 0.1, split.by = "cel
                                                           ) & scale_color_gradient(breaks = pretty_breaks(n = 3), 
                                                                                    limits = c(NA, NA), low = "lightgrey", 
                                                                                    high = "darkblue")
-ggsave(paste("./output/", outName, "/",outName, "_fig2d.png", sep = ""), width = 8, height = 3)
+ggsave(paste("./output/", outName, "/",outName, "_fig3d.png", sep = ""), width = 8, height = 3)
 
 
 legg <- FeaturePlot(seu.obj.sub, features = features[1]) + 
@@ -567,7 +446,7 @@ legg <- FeaturePlot(seu.obj.sub, features = features[1]) +
         high = "darkblue"
     )
 legg <- get_legend(legg)
-ggsave(plot = legg, paste("./output/", outName, "/", outName, "_splitFeats.png", sep = ""), width = 4, height = 4)
+ggsave(plot = legg, paste("./output/", outName, "/", outName, "_splitFeats_leg.png", sep = ""), width = 4, height = 4)
 
 ### Fig extra - DEGs by samples
 lapply(unique(seu.obj$name2), function(sampleName){
