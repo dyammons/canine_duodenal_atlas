@@ -6,7 +6,7 @@ source("/pl/active/dow_lab/dylan/repos/scrna-seq/analysis-code/customFunctions.R
 
 ### Analysis note: 
 # This script loads in the previously processed Seurat object (./output/s3/230816_duod_h3c4_NoIntrons_res1.3_dims40_dist0.3_neigh50_S3.rds)
-# then subsets on epithelial cells and generates all figures assocaited with Figure 4
+# then subsets on epithelial cells and generates all figures assocaited with figure 5 and Supplemental figure 9
 
 ################################################### <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 #######   begin epithelial preprocessing   ######## <<<<<<<<<<<<<<
@@ -77,7 +77,7 @@ seu.obj <- dataVisUMAP(seu.obj = seu.obj, outDir = "./output/s3/", outName = "23
 ############################################## <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
 #load in preprocessed data
-seu.obj <- readRDS("/pl/active/dow_lab/dylan/k9_duod_scRNA/analysis/output/s3/230916_duod_duod_h3c4_NoIntrons_2500_res1.7_dims40_dist0.25_neigh25_S3.rds")
+seu.obj <- readRDS("./output/s3/230916_duod_duod_h3c4_NoIntrons_2500_res1.7_dims40_dist0.25_neigh25_S3.rds")
 seu.obj$cellSource <- factor(seu.obj$cellSource, levels = c("Healthy","CIE"))
 colz.df <- read.csv("./cellColz.csv", header = F)
 colz.df <- colz.df[colz.df$V2 == "duod", ]
@@ -115,7 +115,6 @@ seu.obj$clusterID_final <- Idents(seu.obj)
 
 
 ### supp data - cell type gene signatures
-
 #generate by clusterID (note: this was overclustered)
 # vilnPlots(seu.obj = seu.obj, groupBy = "clusterID_sub", numOfFeats = 24, outName = "230916_duod_duod_h3c4_NoIntrons_2500",
 #                      outDir = "./output/viln/duod/", outputGeneList = T, filterOutFeats = c("^MT-", "^RPL", "^RPS")
@@ -147,7 +146,7 @@ ExportToCB_cus(seu.obj = seu.obj, dataset.name = outName, outDir = "./output/cb_
                           )
 
 
-### Fig supp 6a - UMAP by clusterID_sub
+### Fig supp 9a - UMAP by clusterID_sub
 pi <- DimPlot(seu.obj, 
               reduction = "umap", 
               group.by = "clusterID_sub",
@@ -157,10 +156,10 @@ pi <- DimPlot(seu.obj,
               shuffle = TRUE
 ) + NoLegend()
 p <- cusLabels(plot = pi, shape = 21, size = 8, alpha = 0.8, smallAxes = T) #, labCol = majorColors.df$labCol
-ggsave(paste("./output/", outName,"/", outName, "_supp6a.png", sep = ""), width = 7, height = 7)
+ggsave(paste("./output/", outName,"/", outName, "_supp9a.png", sep = ""), width = 7, height = 7)
 
 
-### Fig 4a - UMAP by majorID_sub
+### Fig 5a - UMAP by majorID_sub
 pi <- DimPlot(seu.obj, 
               reduction = "umap", 
               group.by = "clusterID_final",
@@ -171,10 +170,10 @@ pi <- DimPlot(seu.obj,
               shuffle = TRUE
 ) + NoLegend() 
 p <- formatUMAP(plot = pi, smallAxes = T)
-ggsave(paste0("./output/", outName, "/", outName, "_fig4a.png"), width = 7, height = 7)
+ggsave(paste0("./output/", outName, "/", outName, "_fig5a.png"), width = 7, height = 7)
 
 
-### Fig 4a: create labels to be cropped onto UMAP
+### Fig 5a: create labels to be cropped onto UMAP
 majorColors.df <- as.data.frame(rep("", length(colz.df$V1)))
 colnames(majorColors.df) <- "clusterID_final"
 majorColors.df$colz <- colz.df$V1
@@ -185,7 +184,16 @@ leg <- cusLeg(legend = majorColors.df, clusLabel = "labz", legLabel = "clusterID
 ggsave(paste("./output/", outName, "/", outName, "_leg_forUMAP_labels.png", sep = ""), width = 2.75, height = 7)
 
 
-### Fig 4b - dotplot of major featrures
+### Fig 5b - feature plots of major featrures
+features <- c("SI","SLC22A4","SLC43A2", "SLC40A1",
+              "SLC39A4", "SLC25A5", "SLC25A6", "SLC51B",
+              "ACTA2", "BEST4", "CFTR", "IFIT1")
+p2 <- prettyFeats(seu.obj = seu.obj, nrow = 3, ncol = 4, features = features, 
+             color = "black", order = F, pt.size = 0.0000001, title.size = 18, noLegend = T)
+ggsave(paste("./output/", outName, "/", outName, "_fig5b.png", sep = ""), width = 12, height = 9)
+
+
+### Fig 5c - dotplot of major featrures
 features <- c("SLC15A1", "SI", "ACE2", "TMEM37",
               "ISG15","HERC6",
               "IDO1", "CFTR", "PLCB4","BEST4","NOTCH2","ADGRF5","CEACAM20",
@@ -199,18 +207,10 @@ p <- majorDot(seu.obj = seu.obj, groupBy = "majorID_sub",
                  ) + theme(axis.title = element_blank(),
                            axis.text = element_text(size = 12),
                            legend.position = 'right')
-ggsave(paste("./output/", outName, "/", outName, "_fig4b.png", sep = ""), width = 12, height = 3)
+ggsave(paste("./output/", outName, "/", outName, "_fig5c.png", sep = ""), width = 12, height = 3)
 
 
-features <- c("SI","SLC22A4","SLC43A2", "SLC40A1",
-              "SLC39A4", "SLC25A5", "SLC25A6", "SLC51B",
-              "ACTA2", "BEST4", "CFTR", "IFIT1")
-p2 <- prettyFeats(seu.obj = seu.obj, nrow = 3, ncol = 4, features = features, 
-             color = "black", order = F, pt.size = 0.0000001, title.size = 18, noLegend = T)
-ggsave(paste("./output/", outName, "/", outName, "_fig4b.png", sep = ""), width = 12, height = 9)
-
-
-### Fig supp 6b - reference map using the human gut atlas -- epithieal reference
+### Fig supp 9b - reference map using the human gut atlas -- epithieal reference
 seu.gut.duod <- MuDataSeurat::ReadH5AD("./epi_log_counts02_v2.h5ad")
 #download reference from https://www.gutcellatlas.org/#datasets
 
@@ -255,10 +255,10 @@ pi <- DimPlot(seu.obj,
 pi <- formatUMAP(plot = pi) +theme(plot.title = element_text(size = 18, vjust = 1),
                                                  axis.title = element_blank(),
                                                  panel.border = element_blank()) + ggtitle("Human epithelial reference mapping")
-ggsave(paste("./output/", outName,"/",outName, "_sup6b.png", sep = ""), width = 9, height = 7)
+ggsave(paste("./output/", outName,"/",outName, "_supp9b.png", sep = ""), width = 9, height = 7)
 
 
-### Fig supp 6c - reference map using the human gut atlas -- mesnechymal reference
+### Fig supp 9c - reference map using the human gut atlas -- mesnechymal reference
 reference <- MuDataSeurat::ReadH5AD("./Mesenchyme_log_counts02_v2.h5ad")
 #download reference from https://www.gutcellatlas.org/#datasets
 
@@ -295,10 +295,10 @@ pi <- DimPlot(seu.obj,
 pi <- formatUMAP(plot = pi) + NoLegend() + theme(plot.title = element_text(size = 18, vjust = 1),
                                                  axis.title = element_blank(),
                                                  panel.border = element_blank()) + ggtitle("Human mesenchyme reference mapping")
-ggsave(paste("./output/", outName,"/",outName, "_sup6c.png", sep = ""), width = 7, height = 7)
+ggsave(paste("./output/", outName,"/",outName, "_supp9c.png", sep = ""), width = 7, height = 7)
 
 
-### Fig sup 6d: plot enrichment scores
+### Fig sup9 9d - plot enrichment scores
 ecLists <- read.csv("./gut_ecTerms.csv", header = T)
 #download reference from https://www.gutcellatlas.org/#datasets
 ecLists <- ecLists[ecLists$lineage == "Epithelial" | ecLists$lineage == "Mesenchymal", ]
@@ -319,15 +319,15 @@ p <- majorDot(seu.obj = seu.obj, groupBy = "majorID_sub",
                     ) + theme(legend.position = "bottom",
                               axis.title.y = element_blank(),
                               plot.margin = margin(7, 7, 0, 100, "pt")) + scale_y_discrete(position = "right") + guides(size = guide_legend(nrow = 2, byrow = F, title = 'Percent\nenriched')) + guides(color = guide_colorbar(title = 'Scaled\nenrichment score')) 
-ggsave(paste("./output/", outName, "/", outName, "_sup6d.png", sep = ""), width = 8, height = 6)
+ggsave(paste("./output/", outName, "/", outName, "_supp9d.png", sep = ""), width = 8, height = 6)
 
 
-### Fig 4c - evaluate cell frequency by cluster
-freqy <- freqPlots(seu.obj, method = 1, nrow = 1, groupBy = "majorID_sub", legTitle = "Cell source",refVal = "name2", showPval = T,
+### Fig 9e - evaluate cell frequency by cluster
+freqy <- freqPlots(seu.obj, method = 1, nrow = 2, groupBy = "majorID_sub", legTitle = "Cell source",refVal = "name2", showPval = T,
                    namez = unique(seu.obj$name2), 
                    colz = unique(seu.obj$colz)
                   ) + theme(strip.text = element_text(size=8))
-ggsave(paste("./output/", outName, "/",outName, "_fig4c.png", sep = ""), width = 15, height = 4)
+ggsave(paste("./output/", outName, "/",outName, "_fig9e.png", sep = ""), width = 9, height = 5)
 
 #ensure appropriate stats were run - c3 (enterocyte 3 should use a different statisical appraoch, still n.s. either way though)
 res.ftest <- lapply(levels(freqy$data$majorID_sub), function (x){
@@ -338,7 +338,6 @@ res.ftest
 
 #get data for in text call
 freqy$data %>% filter(majorID_sub == "Tuft") %>% group_by(cellSource) %>% summarize(ave = mean(freq))
-
 
 #summary data for cell type percentages
 table(seu.obj$majorID_sub, seu.obj$name2) %>%
@@ -362,7 +361,8 @@ table(seu.obj$majorID_sub, seu.obj$name2) %>%
     pivot_wider(names_from = "NAME") %>% 
     as.data.frame() 
 
-### Fig supp 6e - pseudobulk dge analysis
+
+### Fig supp 9f - pseudobulk dge analysis
 seu.obj$allCells <- "Epithelial cells"
 seu.obj$allCells <- as.factor(seu.obj$allCells)
 createPB(seu.obj = seu.obj, groupBy = "allCells", comp = "cellSource", biologicalRep = "name2", lowFilter = T, dwnSam =F, min.cell = 15,
@@ -378,61 +378,17 @@ pi  <- prettyVolc(plot = p[[1]], rightLab = "Up in CIE", leftLab = "Up in health
                                       size = 2),
                                       axis.line = element_blank(),
                                       plot.title = element_text(size = 20, face = "bold", hjust = 0.5, vjust = 2))
-ggsave(paste("./output/", outName, "/", outName, "_supp6e.png", sep = ""), width = 7, height = 7)
+ggsave(paste("./output/", outName, "/", outName, "_supp9f.png", sep = ""), width = 7, height = 7)
+
 
 df <- read.csv("./output/duod/pseudoBulk/Epithelial cells/allCells_cluster_Epithelial cells_all_genes.csv")
-### Fig 4d - dge scatter plot
+### Fig extra - dge scatter plot
 seu.obj$allCells <- "DGE analysis of epithelial cells"
 seu.obj$allCells <- as.factor(seu.obj$allCells)
 linDEG(seu.obj = seu.obj, groupBy = "allCells", comparision = "cellSource", outDir = paste0("./output/", outName,"/fig4d_"), 
        outName = "epithelial", labCutoff = 10, contrast = c("CIE", "Healthy"),
        subtitle = T, pValCutoff = 0.01, logfc.threshold = 0.58, saveGeneList = T, addLabs = "KCNK16"
       )
-
-### Fig 4e - plot KCNK16 split by CIE vs H
-set.seed(12)
-Idents(seu.obj) <- "cellSource"
-seu.obj.sub <- subset(seu.obj, downsample = min(table(seu.obj$cellSource)))
-features <- c("KCNK16")
-p <- FeaturePlot(seu.obj.sub,features = features, pt.size = 0.01, split.by = "cellSource", order = T, by.col = F) + labs(x = "UMAP1", y = "UMAP2") & theme(axis.text = element_blank(),
-                                                                                                                                                axis.title.y.right = element_text(size = 16),
-                                                                                                                                            
-                                                                                                                           axis.ticks = element_blank(),
-                                                                                                                           axis.title = element_blank(),
-                                                                                                                           axis.line = element_blank(),
-                                                                                                                           plot.title = element_text(size=16),
-                                                                                                                           title = element_blank(),
-                                                                                                                           plot.margin = unit(c(1, 0, 0, 0), "pt")
-                                                                                                                          ) & scale_color_gradient(breaks = pretty_breaks(n = 3), limits = c(NA, NA), low = "lightgrey", high = "darkblue")
-ggsave(paste("./output/", outName, "/",outName, "_fig4e.png", sep = ""), width = 2, height = 4)
-
-
-### Fig extra - DEGs by samples
-lapply(unique(seu.obj$name2), function(sampleName){
-    seu.obj.sub <- subset(seu.obj, subset = name2 == sampleName)
-    
-    pi <- DimPlot(seu.obj.sub, 
-                  reduction = "umap", 
-                  group.by = "majorID_sub",
-                  pt.size = 0.25,
-                  label = F,
-                  label.box = F,
-                  repel = F,
-                  cols = colz.df$V1
-    )
-    p1 <- formatUMAP(plot = pi) + theme(plot.title = element_text(size= 20)) + ggtitle(unique(seu.obj.sub$name2))
-    
-#     features <- c("IL1B", "S100A12", 
-#                   "SOD2", "KCNK16")
-    
-    features <- c("KCNK16", "ANKRD37", 
-                  "CYP1B1", "HSPA2")
-    p2 <- prettyFeats(seu.obj = seu.obj.sub, nrow = 2, ncol = 2, features = features, 
-                 color = "black", order = F, pt.size = 0.0000001, title.size = 18)
-
-    p <- p1 + p2
-    ggsave(plot = p, paste0("./output/", outName, "/", unique(seu.obj.sub$name2), "_key_feats.png"), width = 12, height = 6, device = "png")
-})
 
 
 ### Fig extra - dge scatter plot within each epithelial cell type
@@ -442,7 +398,7 @@ linDEG(seu.obj = seu.obj, groupBy = "majorID_sub", comparision = "cellSource", o
       )
 
 
-### Fig supp 6e - pseudobulk dge analysis
+### Fig 5d - heatmap of pseudobulk dge analysis within each cluster
 createPB(seu.obj = seu.obj, groupBy = "majorID_sub", comp = "cellSource", biologicalRep = "name2", lowFilter = T, dwnSam =F, min.cell = 15,
                      clusters = NULL, outDir = paste0("./output/", outName,"/pseudoBulk/") , grepTerm = "H", grepLabel = c("Healthy","CIE") #improve - fix this so it is more functional
                     )
@@ -452,8 +408,6 @@ p <- pseudoDEG(metaPWD = paste0("./output/", outName,"/pseudoBulk/majorID_sub_de
           minimalOuts = F, saveSigRes = T, filterTerm = "^ENSCAF", addLabs = NULL, mkDir = T, labSize = 5.5, strict_lfc = F,
                      )
 
-
-### Supp fig xx -- heatmap of degs by each cluster
 files <- lapply(levels(seu.obj$majorID_sub), function(x){
     list.files(path = paste0("./output/", outName,"/pseudoBulk/", x), pattern = ".csv", all.files = FALSE, full.names = T)
 })
@@ -495,7 +449,6 @@ for(i in 1:nrow(sig.mat)){
 }
 
 res.df <- res.df[!duplicated(res.df$gene), ]
-
 
 #extract metadata and data
 metadata <- seu.obj@meta.data
@@ -549,7 +502,6 @@ lgd2 <- Legend(labels = names(cond_colz),
 pd <- packLegend(lgd1, lgd2, max_width = unit(45, "cm"), 
     direction = "horizontal", column_gap = unit(7.5, "mm"), row_gap = unit(0.5, "cm"))
 
-
 #plot the data
 ht <- Heatmap(
     mat_scaled,
@@ -573,7 +525,7 @@ ht <- Heatmap(
     }
 )
 
-png(file = paste0("./output/", outName, "/", outName, "_fig3e.png"), width=2500, height=3000, res=400)
+png(file = paste0("./output/", outName, "/", outName, "_fig5d.png"), width=2500, height=3000, res=400)
 par(mfcol=c(1,1))   
 draw(ht, padding = unit(c(2, 2, 2, 2), "mm"), heatmap_legend_side = "bottom",
      annotation_legend_list = pd, annotation_legend_side = "top")
@@ -586,7 +538,7 @@ for(i in 1:length(levels(seu.obj$majorID_sub))){
 dev.off()
 
 
-### Fig 4f - gsea of the DGE results within Enterocyte_2 cluster
+### Fig 5e - gsea of the DGE results within enterocyte clusters
 genes.df <- do.call(rbind, df.list) %>% 
     filter(abs(log2FoldChange) > 1) %>% 
     filter(!grepl("^ENS", gene)) %>%
@@ -602,8 +554,10 @@ p <- plotGSEA(geneList = geneListUp, geneListDwn = geneListDwn, category = "C5",
 pi <- p + scale_x_continuous(
         limits = c(-4, 4), 
         name = "Signed log10(padj)", 
-        breaks = c(-ceiling(max(abs(p$data$x_axis))*1.05), -ceiling(max(abs(p$data$x_axis))*1.05)/2, 0, 
-                   ceiling(max(abs(p$data$x_axis))*1.05)/2, ceiling(max(abs(p$data$x_axis))*1.05))
+        breaks = c(
+            -ceiling(max(abs(p$data$x_axis))*1.05), -ceiling(max(abs(p$data$x_axis))*1.05)/2, 0, 
+            ceiling(max(abs(p$data$x_axis))*1.05)/2, ceiling(max(abs(p$data$x_axis))*1.05)
+        )
     ) + 
     theme(
         axis.title=element_text(size = 16),
