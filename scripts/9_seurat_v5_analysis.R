@@ -18,7 +18,8 @@ library(clusterProfiler)
 library(scales)
 
 ### Analysis note: 
-# This script ...
+# This script completes supplemental analysis using scVI for each subset. The T cell data is used in the manuscript
+# but the rest is extra analysis not included in the paper. Generates figures associated with Supplemental figure 7.
 
 ######################################## <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 #######   Function definition   ######## <<<<<<<<<<<<<<<<<<<
@@ -50,67 +51,6 @@ runSCVIintegration <- function(
                      "CD4", "MS4A1", "PPBP","HBM")
     )
     return(seu.obj)
-}
-
-
-runMilo <- function(
-    seu.obj = NULL, 
-    da_design = NULL, 
-    subName = "", 
-    blocked = TRUE, 
-    ...
-    ){
-    
-    # Hard coded metadata re-naming
-    seu.obj$Sample <- seu.obj$name2
-    seu.obj$Condition <- seu.obj$cellSource
-
-    # Convert from Seurat to sce object
-    sce <- as.SingleCellExperiment(seu.obj)
-    reducedDim(sce, "PCA") <- seu.obj@reductions$pca@cell.embeddings
-    reducedDim(sce, "UMAP") <- seu.obj@reductions$umap.integrated_v5@cell.embeddings
-
-    # Preprocess using miloR to ID neighboorhoods
-    milo.obj <- Milo(sce)
-    milo.obj$Sample <- droplevels(factor(milo.obj$Sample))
-    milo.obj <- buildGraph(milo.obj, k = 30, d = 40)
-    milo.obj <- makeNhoods(milo.obj, prop = 0.2, k = 30, d = 40, refined = TRUE, refinement_scheme = "graph")
-    p <- plotNhoodSizeHist(milo.obj)
-    ggsave(paste0("../output/", outName, "/", outName, "_NhoodSize.png"), width = 7, height = 7)
-    
-    milo.obj <- countCells(milo.obj, meta.data = data.frame(colData(milo.obj)), samples = "Sample")
-
-    # Set up metadata
-    rownames(da_design) <- da_design$Sample
-    da_design <- da_design[colnames(nhoodCounts(milo.obj)), , drop = FALSE]
-
-    # Calc distance between neighborhoods and test for DA
-    milo.obj <- calcNhoodDistance(milo.obj, d = 40)
-    if(blocked){
-        da_results <- testNhoods(milo.obj, design = ~ Dog + Condition, design.df = da_design)
-    } else{
-        da_results <- testNhoods(milo.obj, design = ~ Condition, design.df = da_design)
-    }
-    
-    n_diff <- da_results %>% arrange(SpatialFDR) %>% filter(SpatialFDR < 0.1) %>% nrow()
-    if(n_diff == 0){
-        message(
-            paste(
-                "No differentially abundant Nhoods at alpha = 0.1!",
-                "The lowest spaitally adjusted P value is:", min(da_results$SpatialFDR),
-                "\n Although not reccomended, you can increase alpha to the lowest",
-                "spaitally adjusted P value to get an idea of which regoins of the",
-                "UMAP are trendy."
-            )
-        )
-    }
-
-    # Plot the results (by neighborhood)
-    milo.obj <- buildNhoodGraph(milo.obj)
-    p <- plotNhoodGraphDA(milo.obj, da_results[!is.na(da_results$logFC), ],
-                          subset.nhoods=!is.na(da_results$logFC), ...)
-    ggsave(paste("../output/", outName, "/", subName, "_milo.png", sep = ""), width = 6, height = 6)
-    return(list(p, milo.obj))
 }
 
 ##################################################### <<<<<<<<<<<<<<<<<<<<<<<<<<
@@ -536,40 +476,6 @@ p1 <- miloOut[[1]] +
 ggsave(paste0("../output/", outName, "/", outName, "_milo_sig.png"), width = 8, height = 7)
 
 
-
-
-
-
-
-
-
-
-
-p <- runMilo(seu.obj = seu.obj, da_design = da_design, subName = "CIE_vs_H", blocked = F, alpha = 0.1)
-
-p0 <- p[[1]] + ggtitle("CIE versus Healthy") + theme(plot.title = element_text(hjust = 0.5)) +
-    scale_fill_gradient2(low = "blue", mid = "white", high = "red", midpoint = 0)
-ggsave(paste0("../output/", outName, "/", outName, "_milo_test.png"), width = 7, height = 7)
-
-milo.obj <- p[[2]] 
-rownames(da_design) <- da_design$Sample
-da_design <- da_design[colnames(nhoodCounts(milo.obj)), , drop = FALSE]
-da_results <- testNhoods(milo.obj, design = ~ Condition, design.df = da_design)
-da_results %>% arrange(SpatialFDR) %>% filter(SpatialFDR < 0.1) %>% nrow()
-
-
-p <- plotNhoodGraphDA(milo.obj, da_results[!is.na(da_results$logFC), ],
-                          subset.nhoods = !is.na(da_results$logFC), alpha = 0.1)
-p0 <- p + ggtitle("CIE versus Healthy") + theme(plot.title = element_text(hjust = 0.5)) +
-    scale_fill_gradient2(low = "blue", mid = "white", high = "red", midpoint = 0)
-ggsave(paste("../output/", outName, "/", outName, "_milo_test.png", sep = ""), width = 7, height = 7)
-
-
-Idents(seu.obj) <- "clusterID_integrated_v5"
-seu.obj <- subset(seu.obj, invert = T, idents = c(6, 7, 9, 11, 13))
-seu.obj <- runSCVIintegration(seu.obj = seu.obj, outName = "tcell_focused_v5")
-
-
 ################################################### <<<<<<<<<<<<<<<<<<<<<<<<<<<<
 #######   Run SCVI integration - Epithelial   ######## <<<<<<<<<<<<<<
 ################################################### <<<<<<<<<<<<<<<<<<<<<<<<<<<<
@@ -664,7 +570,9 @@ p0 <- p + ggtitle("CIE versus Healthy") + theme(plot.title = element_text(hjust 
 ggsave(paste("../output/", outName, "/", outName, "_milo_test.png", sep = ""), width = 7, height = 7)
 
 
-
+################################################## <<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+#######   End SCVI integration analysis   ######## <<<<<<<<<<<<<<
+################################################## <<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
 
 
