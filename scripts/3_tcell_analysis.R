@@ -116,7 +116,7 @@ seu.obj <- dataVisUMAP(seu.obj = seu.obj, outDir = "./output/s3/", outName = "24
 seu.obj <- readRDS("./output/s3/230913_tcell_duod_h3c4_NoIntrons_2500_res0.6_dims35_dist0.3_neigh30_S3.rds")
 seu.obj$cellSource <- factor(seu.obj$cellSource, levels = c("Healthy","CIE"))
 colz.df <- read.csv("./cellColz.csv", header = F)
-colz <- c("#C47AEA", "#EF98CB", "#FF1E6D", "#FF007F")
+colz <- c("#C47AEA", "#EF98CB", "#603FEF", "#FF007F")
 outName <- "tcell"
 
 #remane idents to match the results of clustering at a resolution of 0.2 (as determined using clustree)
@@ -264,20 +264,31 @@ pi <- DimPlot(seu.obj,
               cols = colz,
               label = F,
               label.box = F
-             )
-p <- formatUMAP(plot = pi) + theme(axis.title = element_blank(),
-                             panel.border = element_blank(),
-                             plot.margin = unit(c(-7, -7, -7, -7), "pt")
-                            ) + NoLegend()
+             ) + NoLegend()
+p <- formatUMAP(plot = pi, smallAxes = T)
 ggsave(paste0("./output/", outName, "/", outName, "_fig4a.png"), width = 7, height = 7)
 
 
-### Fig 4b - dot plot of key t cell features
+### Fig 4b - feature plot of key t cell features
 features <- c("CD4", "IL7R", "GZMA","CCL4","IL17RB",
               "CD8A", "TCF7","GZMB", "GZMK", "IL13")
 p <- prettyFeats(seu.obj = seu.obj, nrow = 2, ncol = 5, features = features, 
                  color = "black", order = F, pt.size = 0.0000001, title.size = 16, noLegend = T)
 ggsave(paste("./output/", outName, "/",outName, "_fig4b.png", sep = ""), width = 12.5, height = 5)
+
+
+### Fig supp 6a - feature plot of more key t cell features
+features <- c("CXCR4", "SELL", "CCR7",
+              "ITGB7", "ITGAE")
+p <- prettyFeats(seu.obj = seu.obj, nrow = 2, ncol = 3, features = features, legInLine = T,
+                 color = "black", order = F, pt.size = 0.0000001, title.size = 16, noLegend = F)
+ggsave(paste("./output/", outName, "/",outName, "_supp6a.png", sep = ""), width = 9.5, height = 6)
+
+### Fig extra - feature plot of more key t cell features
+features <- c("CD3D", "CD3E", "CD3G","CD5")
+p <- prettyFeats(seu.obj = seu.obj, nrow = 1, ncol = 4, features = features, 
+                 color = "black", order = F, pt.size = 0.0000001, title.size = 16, noLegend = F)
+ggsave(paste("./output/", outName, "/",outName, "_extraFeats.png", sep = ""), width = 12.5, height = 3)
 
 
 ### Fig 4c - DEG between resident and Non-resident -- this generated supplemental_data_5
@@ -496,6 +507,7 @@ seu.obj <- dataVisUMAP(seu.obj = seu.obj, outDir = "./output/s3/", outName = "24
 
 ### load in the obj
 seu.obj <- readRDS("./output/s3/240112_tcell_noILC_duod_h3c4_NoIntrons_2500_res0.6_dims30_dist0.1_neigh10_S3.rds")
+outName <- "tcell"
 colz <- c("#A41DDC", "#C47AEA", "#DAACF2", "#75149D", "#FF007F", "#F77FBE", "#FF1E6D", "#9B1664", "#FF007F", "#F77FBE")
 labColz <- c("white", "black", "black", "white", "black", "black", "black", "white", "black", "black")
 
@@ -558,17 +570,41 @@ write.csv(cluster.markers[ ,c(7,8,2:6)] %>% left_join(surface.markers, by = c("g
           file = "./output/supplementalData/supplemental_data_7.csv", row.names = F)
 
 
+seu.obj$celltype.l1 <- seu.obj$majorID_sub_big
+seu.obj$celltype.l2 <- seu.obj$majorID_sub_noILC
+seu.obj$sample_name <- seu.obj$name2
 ### supp data - export data for cell browser
 ExportToCB_cus(seu.obj = seu.obj, dataset.name = outName, outDir = "./output/cb_input/", 
-               markers = paste0("./output/viln/",outName,"/",saveName,"_gene_list.csv"), 
-               reduction = "umap",  colsTOkeep = c("orig.ident", "nCount_RNA", "nFeature_RNA", "percent.mt", "Phase", "majorID",
-                                                   "clusterID_sub", "name2", "majorID_sub", "cellSource", "clusterID_final"), 
-               skipEXPR = F,test = F,
+               markers = "./output/supplementalData/supplemental_data_7.csv", 
+               metaSlots = c("cluster","gene","avg_log2FC","p_val_adj", "UniProt.description", "Surfaceome.Label", "Surfaceome.Label.Source"),
+               reduction = "umap",  colsTOkeep = c("orig.ident", "nCount_RNA", "nFeature_RNA", "percent.mt", "Phase",
+                                                   "sample_name", "cellSource", "clusterID_sub", "celltype.l1", "celltype.l2"), 
+               skipEXPR = T, test = F,
                feats = c("CD4", "CD8A", "GZMA", "GZMB", 
                          "CD40LG", "TCF7", "FASLG",
                          "THY1", "BIN1", "TNFRSF6B", "CTLA4",
                          "IL13", "IL17RB", "NCR3","F2RL3")
                           )
+
+seu.obj <- cleanMeta(seu.obj = seu.obj, 
+                     metaSlot_keep = c(
+                         "orig.ident", "nCount_RNA", "nFeature_RNA", "percent.mt", "Phase", "majorID", 
+                         "nCount_SCT", "nFeature_SCT", "clusterID",
+                         "colz", "sample_name", "cellSource", "clusterID_sub", "celltype.l1", "celltype.l2"
+                     )
+                    )
+saveRDS(seu.obj, file = "./output/s3/Tcell_duod_annotated.rds")
+
+
+
+### Fig supp 8a - feature plot of key t cell features
+features <- c("CD4", "IL7R", "GZMA","CCL4",
+              "CD8A", "TCF7","GZMB", "GZMK", 
+              "CTLA4", "NCR3", "OAS1", "IFNG"
+             )
+p <- prettyFeats(seu.obj = seu.obj, nrow = 3, ncol = 4, features = features, 
+                 color = "black", order = F, pt.size = 0.0000001, title.size = 16, noLegend = F)
+ggsave(paste("./output/", outName, "/",outName, "_supp8a.png", sep = ""), width = 12.5, height = 9)
 
 
 ### Fig 4d - tcell colorized by annotation clustering
