@@ -125,7 +125,7 @@ The concept of the AddModuleScore() function is similar to GSEA, but also distin
 
 ```r
 #load in the reference file
-# can dowlaned with this command: wget https://github.com/dyammons/canine_duodenal_atlas/tree/main/scripts/input/genesig_long.csv
+# can dowlaned with this command: wget https://raw.githubusercontent.com/dyammons/canine_duodenal_atlas/main/scripts/input/genesig_long.csv
 ref.df <- read.csv("genesig_long.csv", header = T)
 
 #organize the data
