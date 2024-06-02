@@ -95,6 +95,16 @@ seu.obj$majorID_sub <- Idents(seu.obj)
 seu.obj$majorID_sub <- factor(seu.obj$majorID_sub, levels = c("Neutrophil (c0)", "Eosinophil (c1)", "Monocyte (c2)", 
                                                               "Macrophage (c3)", "cDC1 (c4)", "IL22RA2_DC (c5)"))
 
+Idents(seu.obj) <- "majorID_sub"
+seu.obj <- RenameIdents(seu.obj, c("Neutrophil (c0)" = "Neutrophil",
+                                   "Eosinophil (c1)" = "Eosinophil",
+                                   "Monocyte (c2)" = "Mo-Mac",
+                                   "Macrophage (c3)" = "Mo-Mac",
+                                   "cDC1 (c4)" = "DC", 
+                                   "IL22RA2_DC (c5)" = "DC")
+                       )
+seu.obj$celltype.l1 <- Idents(seu.obj)
+
 #stash the numerical ID
 clusterID_final <- table(seu.obj$majorID_sub) %>% as.data.frame() %>% arrange(desc(Freq)) %>%
 mutate(clusterID_final=row_number()-1) %>% arrange(clusterID_final) 
@@ -131,11 +141,15 @@ cluster.markers <- read.csv("./output/viln/myeloid/240128_myeloid_duod_h3c4_NoIn
 write.csv(cluster.markers[ ,c(7,8,2:6)] %>% left_join(surface.markers, by = c("gene" = "UniProt.gene")),
           file = "./output/supplementalData/supplemental_data_4.csv", row.names = F)
 
-
+seu.obj$celltype.l2 <- seu.obj$majorID_sub
+seu.obj$sample_name <- seu.obj$name2
 ### supp data -  export data for cell browser
 ExportToCB_cus(seu.obj = seu.obj, dataset.name = "myeloid", outDir = "./output/cb_input/", 
-               markers = "./output/viln/myeloid/231022_myeloid_duod_h3c4_NoIntrons_2500_gene_list.csv", 
-               reduction = "umap",  colsTOkeep = c("orig.ident", "nCount_RNA", "nFeature_RNA", "percent.mt", "Phase", "majorID", "clusterID_sub", "name2", "majorID_sub", "cellSource", "clusterID_final"), skipEXPR = F,
+               markers = "./output/supplementalData/supplemental_data_4.csv", 
+               metaSlots = c("cluster","gene","avg_log2FC","p_val_adj", "UniProt.description", "Surfaceome.Label", "Surfaceome.Label.Source"),
+               reduction = "umap",  colsTOkeep = c("orig.ident", "nCount_RNA", "nFeature_RNA", "percent.mt", "Phase", 
+                                                   "sample_name", "cellSource", "clusterID_sub", "celltype.l1", "celltype.l2"), 
+               skipEXPR = T,
                test = F,
                            feats = c("AIF1", "MS4A2", "IL18BP",
                                      "SELL", "S100A12","IL1B",
@@ -143,6 +157,17 @@ ExportToCB_cus(seu.obj = seu.obj, dataset.name = "myeloid", outDir = "./output/c
                                      "MSR1","CSF1R","CCL3",
                                      "FLT3", "BATF3", "CADM1")
                           )
+
+
+seu.obj <- cleanMeta(seu.obj = seu.obj, 
+                     metaSlot_keep = c(
+                         "orig.ident", "nCount_RNA", "nFeature_RNA", "percent.mt", "Phase", "majorID", 
+                         "nCount_SCT", "nFeature_SCT", "clusterID",
+                         "colz", "sample_name", "cellSource", "clusterID_sub", "celltype.l1", "celltype.l2"
+                     )
+                    )
+saveRDS(seu.obj, file = "./output/s3/Myeloid_duod_annotated.rds")
+
 
 
 ### Fig supp 5a - Create UMAP by clusterID_sub
@@ -307,11 +332,11 @@ ggsave(paste("./output/", outName, "/",outName, "_umap_Predicted_canPBMC_Atlas.p
 
 
 ### Fig supp 5c - evlauate cell frequency by majorID
-freqy <- freqPlots(seu.obj, method = 1, nrow= 1, groupBy = "majorID_sub", legTitle = "Cell source",refVal = "name2", showPval = T,
+freqy <- freqPlots(seu.obj, method = 1, nrow = 2, groupBy = "majorID_sub", legTitle = "Cell source",refVal = "name2", showPval = T,
                    namez = unique(seu.obj$name2), 
                    colz = unique(seu.obj$colz)
                   )
-ggsave(paste("./output/", outName, "/",outName, "_supp5c.png", sep = ""), width = 9, height = 3)
+ggsave(paste("./output/", outName, "/",outName, "_supp5c.png", sep = ""), width = 6.5, height = 4)
 
 
 ### Fig extra - evlauate cell frequency by clusterID_sub

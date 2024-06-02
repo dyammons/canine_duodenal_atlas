@@ -1,7 +1,7 @@
 #!/usr/bin/Rscript
 
 #load custom functions & packages
-source("/pl/active/dow_lab/dylan/repos/K9-PBMC-scRNAseq/analysisCode/customFunctions.R")
+source("customFunctions.R")
 
 ### Analysis note 1: 
 # The published dataset consisted of 3 healthy and 4 CIE affected dogs. During data collection we obatined data from an

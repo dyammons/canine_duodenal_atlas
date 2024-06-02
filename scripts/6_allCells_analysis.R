@@ -10,6 +10,11 @@ library(circlize)
 # then loads all of the major cell type datasets annoated though independent reclustering and transfers the cell type labels to the full
 # dataset. The script generates all figures assocaited with Figure 2 and Supplemental figure 2 and 3
 
+bash /projects/dyammons@colostate.edu/software/zenodo-upload/zenodo_upload.sh https://zenodo.org/deposit/11186107 AllCells_duod_annotated.rds
+bash /projects/dyammons@colostate.edu/software/zenodo-upload/zenodo_upload.sh https://zenodo.org/deposit/11186107 Epithelial_duod_annotated.rds
+bash /projects/dyammons@colostate.edu/software/zenodo-upload/zenodo_upload.sh https://zenodo.org/deposit/11186107 Tcell_duod_annotated.rds
+bash /projects/dyammons@colostate.edu/software/zenodo-upload/zenodo_upload.sh https://zenodo.org/deposit/11186107 Myeloid_duod_annotated.rds
+
 ################################################### <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 #######   Transfer cell type annotations   ######## <<<<<<<<<<<<<<
 ################################################### <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
@@ -240,17 +245,31 @@ cluster.markers <- read.csv("./output/viln/allCells/240128_allCells_duod_h3c4_No
 write.csv(cluster.markers[ ,c(7,8,2:6)] %>% left_join(surface.markers, by = c("gene" = "UniProt.gene")),
           file = "./output/supplementalData/supplemental_data_2.csv", row.names = F)
 
+
+seu.obj$celltype.l1 <- seu.obj$majorID_pertyName
+seu.obj$celltype.l2 <- seu.obj$celltype.l3
+seu.obj$sample_name <- seu.obj$name2
 #export data for cellbrowser
 ExportToCB_cus(seu.obj = seu.obj, dataset.name = outName, outDir = "./output/cb_input/", 
-               markers = paste0("./output/viln/",outName,"/",saveName,"_gene_list.csv"), 
-               reduction = "umap",  colsTOkeep = c("orig.ident", "nCount_RNA", "nFeature_RNA", "percent.mt", "Phase", "majorID",
-                                                   "clusterID_sub", "name2", "majorID_pertyName", "celltype.l3", "cellSource", "clusterID_final"), 
-               skipEXPR = F,test = F,
+               markers = "./output/supplementalData/supplemental_data_2.csv", 
+               metaSlots = c("cluster","gene","avg_log2FC","p_val_adj", "UniProt.description", "Surfaceome.Label", "Surfaceome.Label.Source"),
+               reduction = "umap",  colsTOkeep = c("orig.ident", "nCount_RNA", "nFeature_RNA", "percent.mt", "Phase", 
+                                                   "sample_name", "cellSource", "clusterID", "celltype.l1", "celltype.l2"), 
+               skipEXPR = T, test = F,
                feats = c("PTPRC", "CD3E", "CD8A", "GZMA", 
                          "IL7R", "ANPEP", "FLT3", "DLA-DRA", 
                          "CD4", "MS4A1", "RELN","EPCAM")
                           )
 
+
+seu.obj <- cleanMeta(seu.obj = seu.obj, 
+                     metaSlot_keep = c(
+                         "orig.ident", "nCount_RNA", "nFeature_RNA", "percent.mt", "Phase", "majorID", 
+                         "nCount_SCT", "nFeature_SCT", "clusterID",
+                         "colz", "sample_name", "cellSource", "celltype.l1", "celltype.l2"
+                     )
+                    )
+saveRDS(seu.obj, "./output/s3/AllCells_duod_annotated.rds")
 
 ### Fig supp 2a - create UMAP by celltype.l3
 pi <- DimPlot(seu.obj, 
@@ -728,7 +747,7 @@ p <- pseudoDEG(metaPWD = paste0("./output/", outName,"/pseudoBulk/majorID_deg_me
                filterTerm = "^ENSCAF", addLabs = NULL, mkDir = T, strict_lfc = F
               )
 
-files <- lapply(levels(seu.obj$majorID), function(x){
+files <- lapply(c("All cells", levels(seu.obj$majorID)), function(x){
     list.files(path = paste0("./output/allCells/pseudoBulk/", x), pattern = ".csv", all.files = FALSE, full.names = T)
 })
 
@@ -756,13 +775,16 @@ orderList <- rev(rownames(cnts_mat)[order(rowSums(cnts_mat))])
 cnts_mat <- cnts_mat[match(orderList, rownames(cnts_mat)),]        
 rownames(cnts_mat) <- c("Myeloid", "Mast cell", "Epithelial", "T cell", "Plasma cell", "Cycling T cell")
 
+anno_mat <- cnts_mat
+cnts_mat[,1] <- -cnts_mat[,1]
+
 png(file = paste0("./output/", outName, "/", subname, "/",outName, "_fig1f.png"), width=1500, height=2000, res=400)
 par(mfcol=c(1,1))         
 ht <- Heatmap(cnts_mat,#name = "mat", #col = col_fun,
               name = "# of DEGs",
               cluster_rows = F,
               row_title = "Cell type",
-              col = circlize::colorRamp2(c(0,max(cnts_mat)), colors = c("white","red")),
+              col = circlize::colorRamp2(c(min(cnts_mat), 0,max(cnts_mat)), colors = c("blue", "white", "red")),
               cluster_columns = F,
               column_title = gt_render(
                   paste0("<span style='font-size:14pt; color:black'>**# of DEGs**</span><br>",
@@ -776,7 +798,7 @@ ht <- Heatmap(cnts_mat,#name = "mat", #col = col_fun,
               heatmap_legend_param = list(legend_direction = "horizontal", title_position = "topleft",  title_gp = gpar(fontsize = 16), 
                                           labels_gp = gpar(fontsize = 8), legend_width = unit(6, "cm")),
               cell_fun = function(j, i, x, y, width, height, fill) {
-                      grid.text(sprintf("%.0f", as.matrix(cnts_mat)[i, j]), x, y, gp = gpar(fontsize = 14, col = "black"))
+                      grid.text(sprintf("%.0f", as.matrix(anno_mat)[i, j]), x, y, gp = gpar(fontsize = 14, col = "black"))
               })
 draw(ht, padding = unit(c(2, 12, 2, 5), "mm"),show_heatmap_legend = FALSE)
 dev.off()

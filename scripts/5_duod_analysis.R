@@ -100,7 +100,18 @@ seu.obj <- RenameIdents(seu.obj, c("0" = "Enterocyte_1", "1" = "Enterocyte_1",
                                    "24" = "Enteroendocrine")
                        )
 seu.obj$majorID_sub <- Idents(seu.obj)
+seu.obj$majorID_sub_orderedBySize <- factor(seu.obj$majorID_sub, levels = levels(seu.obj$majorID_sub)[c(1,2,3,6,4,5,7,8,9)])
 seu.obj$majorID_sub <- factor(seu.obj$majorID_sub, levels = levels(seu.obj$majorID_sub)[c(1,2,3,7,6,8,4,5,9)])
+
+
+Idents(seu.obj) <- "majorID_sub"
+seu.obj <- RenameIdents(seu.obj, c("Enterocyte_1" = "Enterocyte",
+                                   "Enterocyte_2" = "Enterocyte",
+                                   "Enterocyte_3" = "Enterocyte",
+                                   "IFN_enterocyte" = "Enterocyte")
+                       )
+seu.obj$celltype.l1 <- Idents(seu.obj)
+
 
 #stash the numerical ID
 clusterID_final <- table(seu.obj$majorID_sub) %>% as.data.frame() %>% arrange(desc(Freq)) %>%
@@ -132,18 +143,28 @@ cluster.markers <- read.csv("./output/viln/duod/240128_duod_duod_h3c4_NoIntrons_
 write.csv(cluster.markers[ ,c(7,8,2:6)] %>% left_join(surface.markers, by = c("gene" = "UniProt.gene")),
           file = "./output/supplementalData/supplemental_data_8.csv", row.names = F)
 
-
+seu.obj$celltype.l2 <- seu.obj$majorID_sub
+seu.obj$sample_name <- seu.obj$name2
 ### supp data - export data fpr cell browser
 ExportToCB_cus(seu.obj = seu.obj, dataset.name = outName, outDir = "./output/cb_input/", 
-               markers = paste0("./output/viln/",outName,"/",saveName,"_gene_list.csv"), 
-               reduction = "umap",  colsTOkeep = c("orig.ident", "nCount_RNA", "nFeature_RNA", "percent.mt", "Phase", "majorID",
-                                                   "clusterID_sub", "name2", "majorID_sub", "cellSource", "clusterID_final"), 
-               skipEXPR = T,test = F,
+               markers = "./output/supplementalData/supplemental_data_8.csv", 
+               metaSlots = c("cluster","gene","avg_log2FC","p_val_adj", "UniProt.description", "Surfaceome.Label", "Surfaceome.Label.Source"),
+               reduction = "umap",  colsTOkeep = c("orig.ident", "nCount_RNA", "nFeature_RNA", "percent.mt", "Phase", 
+                                                   "sample_name", "cellSource", "clusterID_sub", "celltype.l1", "celltype.l2"), 
+               skipEXPR = T, test = F,
                feats = c("SLC15A1", "ACE2", "IDO1", "CFTR", 
                          "BEST4", "NOTCH2", "AREG", "FABP3", 
                          "IRAG2", "SYNE2", "ONECUT2","SI")
-                          
                           )
+
+seu.obj <- cleanMeta(seu.obj = seu.obj, 
+                     metaSlot_keep = c(
+                         "orig.ident", "nCount_RNA", "nFeature_RNA", "percent.mt", "Phase", "majorID", 
+                         "nCount_SCT", "nFeature_SCT", "clusterID",
+                         "colz", "sample_name", "cellSource", "clusterID_sub", "celltype.l1", "celltype.l2"
+                     )
+                    )
+saveRDS(seu.obj, file = "./output/s3/Epithelial_duod_annotated.rds")
 
 
 ### Fig supp 9a - UMAP by clusterID_sub
@@ -408,14 +429,14 @@ p <- pseudoDEG(metaPWD = paste0("./output/", outName,"/pseudoBulk/majorID_sub_de
           minimalOuts = F, saveSigRes = T, filterTerm = "^ENSCAF", addLabs = NULL, mkDir = T, labSize = 5.5, strict_lfc = F,
                      )
 
-files <- lapply(levels(seu.obj$majorID_sub), function(x){
+files <- lapply(levels(seu.obj$majorID_sub_orderedBySize), function(x){
     list.files(path = paste0("./output/", outName,"/pseudoBulk/", x), pattern = ".csv", all.files = FALSE, full.names = T)
 })
 
 df.list <- lapply(unlist(files), read.csv, header = T)
 
-seu.obj$type <- factor(paste0(as.character(seu.obj$majorID_sub), "--", as.character(seu.obj$cellSource)),
-                       levels = paste0(rep(levels(seu.obj$majorID_sub), each = 2), "--", c("Healthy", "CIE")))
+seu.obj$type <- factor(paste0(as.character(seu.obj$majorID_sub_orderedBySize), "--", as.character(seu.obj$cellSource)),
+                       levels = paste0(rep(levels(seu.obj$majorID_sub_orderedBySize), each = 2), "--", c("Healthy", "CIE")))
 
 do.call(rbind, df.list) %>% filter(abs(log2FoldChange) > 1)  %>% nrow()
 
@@ -469,14 +490,14 @@ mat_scaled <- mat_scaled[match(rownames(sig.mat), rownames(mat_scaled)), ]
 
 #set annotations
 clus <- colz.df$V1
-names(clus) <- levels(seu.obj$majorID_sub)
+names(clus) <- levels(seu.obj$majorID_sub_orderedBySize)
 cond_colz <- c("mediumseagreen","mediumpurple1")
 names(cond_colz) <- c("Healthy","CIE")
 
 # heat_col <- viridis(option = "magma",100)
 ha <- HeatmapAnnotation(
     Cluster = factor(unlist(lapply(colnames(mat_scaled), function(x){strsplit(x,"--")[[1]][1]})),
-                     levels = levels(seu.obj$majorID_sub)),
+                     levels = levels(seu.obj$majorID_sub_orderedBySize)),
     Condition = unlist(lapply(colnames(mat_scaled), function(x){strsplit(x,"--")[[1]][2]})),
     border = TRUE,
     col = list(Cluster = clus, Condition = cond_colz),
@@ -484,7 +505,7 @@ ha <- HeatmapAnnotation(
     show_legend = FALSE
 )
 
-lgd1 <- Legend(labels = paste0("(c", ((1:9) - 1), ") ", levels(seu.obj$majorID_sub)),
+lgd1 <- Legend(labels = paste0("(c", ((1:9) - 1), ") ", levels(seu.obj$majorID_sub_orderedBySize)),
                legend_gp = gpar(fill = clus), 
                title = "Clusters", 
                direction = "vertical",
@@ -513,7 +534,7 @@ ht <- Heatmap(
     top_annotation = ha,
     show_column_names = F,
     column_split = factor(unlist(lapply(colnames(mat_scaled), function(x){strsplit(x,"--")[[1]][1]})),
-                          levels = levels(seu.obj$majorID_sub)),
+                          levels = levels(seu.obj$majorID_sub_orderedBySize)),
     row_title = NULL,
     column_title = NULL,
     heatmap_legend_param = list(
@@ -530,9 +551,9 @@ par(mfcol=c(1,1))
 draw(ht, padding = unit(c(2, 2, 2, 2), "mm"), heatmap_legend_side = "bottom",
      annotation_legend_list = pd, annotation_legend_side = "top")
 
-for(i in 1:length(levels(seu.obj$majorID_sub))){
+for(i in 1:length(levels(seu.obj$majorID_sub_orderedBySize))){
     decorate_annotation("Cluster", slice = i, {
-        grid.text(paste0("c", (1:length(levels(seu.obj$majorID_sub))) - 1)[i], just = "center")
+        grid.text(paste0("c", (1:length(levels(seu.obj$majorID_sub_orderedBySize))) - 1)[i], just = "center")
     })
 }
 dev.off()

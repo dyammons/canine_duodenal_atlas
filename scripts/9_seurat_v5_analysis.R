@@ -433,7 +433,7 @@ ggsave(paste("../output/", outName, "/", outName, "_supp5c.png", sep = ""), widt
 
 ### Fig 3b - dot plot of key t cell features
 features <- c("CD4", "IL7R", "GZMA","CCL4","IL17RB",
-              "CD8A", "TCF7","GZMB", "GZMK", "IL13")
+              "CD8A", "TCF7","GZMB", "GZMK", "MS4A1")
 p <- prettyFeats(seu.obj = seu.obj, nrow = 2, ncol = 5, features = features, reduction = "umap.integrated_v5",
                  color = "black", order = F, pt.size = 0.0000001, title.size = 16, noLegend = T)
 ggsave(paste("../output/", outName, "/",outName, "_fig3b.png", sep = ""), width = 12.5, height = 5)

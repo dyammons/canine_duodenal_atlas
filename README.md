@@ -2,7 +2,7 @@
 
 This GitHub repository contains all the analysis code used in, "Single-Cell RNA Sequencing Implicates Neutrophil and Epithelial Contributions to the Pathogenesis of Chronic Inflammatory Enteropathy in Dogs."
 
-This manuscript is currently under review at Fontiers in Immunology. The repository will be finalized at time of publication.
+This manuscript has been accepted to Fontiers in Immunology. The abstract can be viewed [here](https://www.frontiersin.org/journals/immunology/articles/10.3389/fimmu.2024.1397590/abstract).
 
 ## Repository goals: 
 - provide a resource to make the data generated from this project accessible
@@ -12,9 +12,9 @@ This manuscript is currently under review at Fontiers in Immunology. The reposit
 If you have any questions or concerns, please submit an issue, contact the corresponding author(s), and/or contact Dylan Ammons at dylan.ammons @ colostate dot edu.
 
 ## File structure:
-- [:file\_folder: input](/input) contains relevant metadata files and instructions for obtaining data associated with this study
-- [:file\_folder: analysis](/scripts) contains the analysis code and source file used to complete the data analysis
-- [:file\_folder: output](/output) contains the expected directory structure
+- [:file\_folder: input](/scripts/input) contains relevant metadata files and instructions for obtaining data associated with this study
+- [:file\_folder: scripts](/scripts) contains the analysis code and source file used to complete the data analysis
+- [:file\_folder: output](/scripts/output) contains the expected directory structure
 - 
 ## Supplemental data and potential uses:
 1. [Browse the data](#1-browse-the-complete-annotated-dataset)
@@ -27,7 +27,7 @@ If you have any questions or concerns, please submit an issue, contact the corre
 The proccessed dataset is avaliable for browsing via the UCSC Cell Browser portal.
 Using the portal you can explore feature expression throughout the dataset as well as obtain the transcriptomic signatures of each cell type though an interactive webpage.
 
-Link to the dataset: TBD
+Link to the dataset: https://canine-duodenum-cie.cells.ucsc.edu
 
 Link to UCSC Cell Browser documentation: https://cellbrowser.readthedocs.io/en/master/
 
@@ -86,7 +86,7 @@ Reference mapping is useful tool to facilitate the identification of cell types 
 Before running the reference mapping code, a Seurat object need to be preprocessed and stored as an object named `seu.obj`.
 ```r
 #set the path to the location in which the reference file is saved
-reference <- readRDS(file = "canine_duodenum_annotated.rds")
+reference <- readRDS(file = "AllCells_duod_annotated.rds")
 
 #prepare the reference
 reference[['integrated']] <- as(object = reference[['integrated']] , Class = "SCTAssay")
@@ -124,11 +124,12 @@ Module scoring is a supplemental approach that can be applied to single cell dat
 The concept of the AddModuleScore() function is similar to GSEA, but also distinct in many ways. Read the [Seurat documentation](https://satijalab.org/seurat/reference/addmodulescore) and/or check out [this webpage](https://www.waltermuskovic.com/2021/04/15/seurat-s-addmodulescore-function/) for more details.
 
 ```r
-#load in the reference file from supplemental data
-ref.df <- read.csv("supplementalData_4.csv", header = T)
+#load in the reference file
+# can dowlaned with this command: wget https://github.com/dyammons/canine_duodenal_atlas/tree/main/scripts/input/genesig_long.csv
+ref.df <- read.csv("genesig_long.csv", header = T)
 
 #organize the data
-modulez <- split(ref.df$gene, ref.df$cellType_l2)
+modulez <- split(ref.df$gene, ref.df$celltype.l2)
 
 #complete module scoring
 seu.obj <- AddModuleScore(seu.obj,
@@ -138,19 +139,15 @@ seu.obj <- AddModuleScore(seu.obj,
 #correct the naming -- credit to: https://github.com/satijalab/seurat/issues/2559
 names(seu.obj@meta.data)[grep("_score", names(seu.obj@meta.data))] <- names(modulez)
 
-#plot the results -- uses a custom function, so you will need to source the customFeunctions.R file. Alt: can also be visulized with FeaturePlot() or DotPlot()
+#plot the results
 features <- names(modulez)
-ecScores <- majorDot(seu.obj = seu.obj, groupBy = "clusterID_sub", scale = T,
-                     features = features
-                    ) + theme(axis.title = element_blank(),
-                              #axis.ticks = element_blank(),
-                              #legend.justification = "left",
-                              #plot.margin = margin(7, 21, 7, 7, "pt")
-                              legend.direction = "vertical",
-                              legend.position = "right"
-                             ) + guides(color = guide_colorbar(title = 'Scaled\nenrichment\nscore')) + guides(size = guide_legend(nrow = 3, byrow = F, title = 'Percent\nenriched'))
+ecScores <- DotPlot(
+    seu.obj,
+    assay = "RNA",
+    features = features,
+)
 
-ggsave(paste("./output/", outName, "/", outName, "_dots_celltypes.png", sep = ""),width = 10,height=6)
+ggsave(paste("./output/", outName, "/", outName, "_dots_celltypes.png", sep = ""),width = 10, height = 6)
 ```
 
 

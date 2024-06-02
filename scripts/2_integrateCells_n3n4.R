@@ -1,7 +1,7 @@
 #!/usr/bin/Rscript
 
 #load custom functions & packages
-source("/pl/active/dow_lab/dylan/repos/K9-PBMC-scRNAseq/analysisCode/customFunctions.R")
+source("/pl/active/dow_lab/dylan/repos/scrna-seq/analysis-code/customFunctions.R")
 
 ### Analysis note: 
 # This script loads in the previously processed Seurat object (./output/s3/230706_duod_h3c6_NoIntrons_res0.4_dims50_dist0.5_neigh40_S3.rds)
