@@ -1,3 +1,5 @@
+[![DOI](https://zenodo.org/badge/635773561.svg)](https://zenodo.org/doi/10.5281/zenodo.11153534)
+
 # Canine duodenal atlas
 
 This GitHub repository contains all the analysis code used in, "Single-Cell RNA Sequencing Implicates Neutrophil and Epithelial Contributions to the Pathogenesis of Chronic Inflammatory Enteropathy in Dogs."
