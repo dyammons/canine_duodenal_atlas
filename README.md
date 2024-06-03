@@ -15,7 +15,7 @@ If you have any questions or concerns, please submit an issue, contact the corre
 - [:file\_folder: input](/scripts/input) contains relevant metadata files and instructions for obtaining data associated with this study
 - [:file\_folder: scripts](/scripts) contains the analysis code and source file used to complete the data analysis
 - [:file\_folder: output](/scripts/output) contains the expected directory structure
-- 
+
 ## Supplemental data and potential uses:
 1. [Browse the data](#1-browse-the-complete-annotated-dataset)
 2. [Cell type annotations](#2-cell-type-annotations-with-defining-markers)
@@ -33,7 +33,7 @@ Link to UCSC Cell Browser documentation: https://cellbrowser.readthedocs.io/en/m
 
 ### 2. Cell type annotations with defining markers
 
-Cell markers lists were curated using the full dataset of 3 healthy and 4 chronic inflammatory enteropathy (CIE) dogs. The top 50 defining features (identified using `FindMarkers` for each cell type were considered, with the top 24 features evaluated for specificity using violin plots and preference given to unique features only found in the top 50 of one cell type.
+Cell markers lists were curated using the full dataset of 3 healthy and 4 chronic inflammatory enteropathy (CIE) dogs. The top 50 defining features (identified using `FindAllMarkers` for each cell type were considered, with the top 24 features evaluated for specificity using violin plots and preference given to unique features only found in the top 50 of one cell type.
 
 <details open><summary>Cell type gene signatures</summary>
 <p>
@@ -102,18 +102,22 @@ anchors <- FindTransferAnchors(
 )
 
 #select meta.data slot to use for label transfer -- change refdata value to use alternate labels (i.e., refdata = reference$celltype.l1)
-predictions <- TransferData(anchorset = anchors, refdata = reference$celltype.l3,
-    dims = 1:50)
+predictions <- TransferData(
+    anchorset = anchors,
+    refdata = reference$celltype.l3,
+    dims = 1:50
+)
 seu.obj <- AddMetaData(seu.obj, metadata = predictions)
 
 #generate and save the image
-pi <- DimPlot(seu.obj, 
-              reduction = "umap", 
-              group.by = "predicted.id",
-              pt.size = 0.25,
-              label = T,
-              label.box = T,
-              shuffle = F
+pi <- DimPlot(
+    seu.obj, 
+    reduction = "umap", 
+    group.by = "predicted.id",
+    pt.size = 0.25,
+    label = T,
+    label.box = T,
+    shuffle = F
 )
 ggsave("./output/referenceMap.png", width = 7, height = 7)
 ```
@@ -132,9 +136,7 @@ ref.df <- read.csv("genesig_long.csv", header = T)
 modulez <- split(ref.df$gene, ref.df$celltype.l2)
 
 #complete module scoring
-seu.obj <- AddModuleScore(seu.obj,
-                          features = modulez,
-                         name = "_score")
+seu.obj <- AddModuleScore(seu.obj, features = modulez, name = "_score")
 
 #correct the naming -- credit to: https://github.com/satijalab/seurat/issues/2559
 names(seu.obj@meta.data)[grep("_score", names(seu.obj@meta.data))] <- names(modulez)
@@ -144,10 +146,10 @@ features <- names(modulez)
 ecScores <- DotPlot(
     seu.obj,
     assay = "RNA",
-    features = features,
+    features = features
 )
 
-ggsave(paste("./output/", outName, "/", outName, "_dots_celltypes.png", sep = ""),width = 10, height = 6)
+ggsave("./output/dots_celltypes.png", width = 10, height = 6)
 ```
 
 
