@@ -9,12 +9,7 @@ library(circlize)
 # This script loads in the previously processed Seurat object (./output/s3/230816_duod_h3c4_NoIntrons_res1.3_dims40_dist0.3_neigh50_S3.rds)
 # then loads all of the major cell type datasets annoated though independent reclustering and transfers the cell type labels to the full
 # dataset. The script generates all figures assocaited with Figure 2 and Supplemental figure 2 and 3
-
-bash /projects/dyammons@colostate.edu/software/zenodo-upload/zenodo_upload.sh https://zenodo.org/deposit/11186107 AllCells_duod_annotated.rds
-bash /projects/dyammons@colostate.edu/software/zenodo-upload/zenodo_upload.sh https://zenodo.org/deposit/11186107 Epithelial_duod_annotated.rds
-bash /projects/dyammons@colostate.edu/software/zenodo-upload/zenodo_upload.sh https://zenodo.org/deposit/11186107 Tcell_duod_annotated.rds
-bash /projects/dyammons@colostate.edu/software/zenodo-upload/zenodo_upload.sh https://zenodo.org/deposit/11186107 Myeloid_duod_annotated.rds
-
+s
 ################################################### <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 #######   Transfer cell type annotations   ######## <<<<<<<<<<<<<<
 ################################################### <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
