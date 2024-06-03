@@ -48,7 +48,7 @@ To download via NCBI webpage, navigate to the [GSE254005](https://www.ncbi.nlm.n
 
 ### Rearrange the data
 
-The count matrices were renamed when uploaded to NCBI. If you wish to use the analysis in it's entirety you will need to rename the files accordingly. Feel free to reach out if you have any questions regarding renaming the files.
+The count matrices were renamed when uploaded to NCBI. If you wish to use the analysis code in it's entirety you will need to rename the matrix files accordingly. Feel free to reach out if you have any questions regarding renaming the files.
 
 ## Instructions to obtain raw data from SRA
 Navigate to directory of interest and run for each file you wish to pull down. Then with SRA toolkit installed run:
