@@ -5,10 +5,10 @@ Once on the web page scroll down and select download for the file(s) of interest
 
 Alternatively, use `wget` in a terminal to retrieve the data:
 ```sh
-wget https://zenodo.org/record/11153534/files/AllCells_duod_annotated.rds    # Full dataset
-wget https://zenodo.org/record/11153534/files/Myeloid_duod_annotated.rds     # Myeloid cell dataset
-wget https://zenodo.org/record/11153534/files/Tcell_duod_annotated.rds       # T cell dataset
-wget https://zenodo.org/record/11153534/files/Epithelial_duod_annotated.rds  # Epithelial cell dataset
+wget https://zenodo.org/record/11434076/files/AllCells_duod_annotated.rds    # Full dataset
+wget https://zenodo.org/record/11434076/files/Myeloid_duod_annotated.rds     # Myeloid cell dataset
+wget https://zenodo.org/record/11434076/files/Tcell_duod_annotated.rds       # T cell dataset
+wget https://zenodo.org/record/11434076/files/Epithelial_duod_annotated.rds  # Epithelial cell dataset
 ```
 
 Prefer to use tools in python or R? Check out `zenodo_get` or `inborutils` to download within the respective software. 
@@ -25,7 +25,7 @@ Visit the [`zendo_get`](https://github.com/dvolgyes/zenodo_get) page for most up
 pip3 install zenodo_get
 
 #download the Zenodo repository
-zenodo_get 10.5281/zenodo.11153534
+zenodo_get 10.5281/zenodo.11434076
 ```
 
 </p>
