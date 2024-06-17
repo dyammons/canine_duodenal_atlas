@@ -4,7 +4,8 @@
 
 This GitHub repository contains all the analysis code used in, "Single-Cell RNA Sequencing Implicates Neutrophil and Epithelial Contributions to the Pathogenesis of Chronic Inflammatory Enteropathy in Dogs."
 
-This manuscript has been accepted to Fontiers in Immunology. The abstract can be viewed [here](https://www.frontiersin.org/journals/immunology/articles/10.3389/fimmu.2024.1397590/abstract).
+If you use our raw/processed data, extract data using the UCSC Cell Browser portal, or use portions of our code in your analysis, please cite:
+> Manchester, A. C., Ammons, D. T., Dow, S., & Lappin, M. R. Single cell transcriptomic analysis of the canine duodenum in chronic inflammatory enteropathy and health. Frontiers in Immunology, 15, 1397590. doi: 10.3389/fimmu.2024.1397590
 
 ## Repository goals: 
 - provide a resource to make the data generated from this project accessible
